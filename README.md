@@ -17,26 +17,26 @@ Build a decentralized AI-agent marketplace where developers publish Dockerized A
 
 ## Architecture
 
-[User Browser / Next.js UI]
-  ├─ Wallet connect (HashConnect)
-  ├─ Build workflows (React Flow)
-  └─ Trigger run -> POST /api/run
-        ↓
-[NestJS Backend (Orchestrator)] ----------------------------┐
-  ├─ Auth + Supabase (tools, users, workflows, reviews)     │
-  ├─ Hedera SDK (collect escrow, payouts)                   │
-  ├─ Task dispatcher (Redis queue or WebSocket)             │
-  └─ Node registry + verifier                               │
-        ↓                                                    │
-[Node Client(s) — Docker Engine on participant machines]     │
-  ├─ Pull docker image (public URL)                         │
-  ├─ Run container with standardized REST interface (/run)   │
-  ├─ Compute, produce result, sign result with local key     │
-  └─ Return result + signature -> backend                    │
-        ↓                                                    │
-[Backend] (verify signature -> record in Supabase -> Hedera payout)
-        ↓
-[Supabase] (metadata, logs, reviews, workflow JSON)
+    User Browser / Next.js UI
+    ├─ Wallet connect (HashConnect)
+    ├─ Build workflows (React Flow)
+    └─ Trigger run -> POST /api/run
+
+    NestJS Backend
+    ├─ Auth + Supabase (tools, users, workflows, reviews)     
+    ├─ Hedera SDK (collect escrow, payouts)                   
+    ├─ Task dispatcher (Redis queue or WebSocket)             
+    └─ Node registry + verifier
+                                                    
+    Node Client(s) — Docker Engine on participant machines]     
+    ├─ Pull docker image (public URL)                         
+    ├─ Run container with standardized REST interface (/run)   
+    ├─ Compute, produce result, sign result with local key     
+    └─ Return result + signature -> backend                    
+                                                           
+    Backend: verify signature -> record in Supabase -> Hedera payout
+
+    Supabase: metadata, logs, reviews, workflow JSON)
 
 ### Notes:
 - FastAPI (centralized AI) exists as fallback: when no nodes, backend calls FastAPI to run the containers.
@@ -56,7 +56,7 @@ README.md
 
 ⸻
 
-## Minimal Supabase Schmea
+## Supabase Schmea
 
 User { id, displayName, walletAccountId, createdAt }
 Tool { id, name, description, dockerImageUrl, ownerWallet, pricePerCall, rating, usageCount }
