@@ -47,12 +47,11 @@ Build a decentralized AI-agent marketplace where developers publish Dockerized A
 
 ## Folder structure
 
-/frontend            # Next.js (React) + HashConnect + React Flow
-/backend             # NestJS orchestration + Hedera SDK + Prisma (Supabase)
-/decentralizer       # FastAPI and Dockerfiles for fallback tool execution
-/node-client         # Node.js worker to pull images, run container, sign results
-README.md
-
+    /frontend            # Next.js (React) + HashConnect + React Flow
+    /backend             # NestJS orchestration + Hedera SDK + Prisma (Supabase)
+    /decentralizer       # FastAPI and Dockerfiles for fallback tool execution
+    /node-client         # Node.js worker to pull images, run container, sign results
+    README.md
 
 ⸻
 
@@ -68,14 +67,14 @@ Review { id, toolId, userId, stars, comment }
 
 ⸻
 
-Hedera specifics (minimal required)
-	•	Use Hedera Testnet and @hashgraph/sdk (JS) in backend. Keep operator keys in backend .env (never commit).
+## Hedera specifics
+	•	Hedera Testnet and @hashgraph/sdk (JS) in backend. Keep operator keys in backend .env
 	•	Flow: user transfers HBAR -> platform escrow account (platform operator gets TX ID) -> backend verifies receipt -> dispatches task -> on successful signed result from node, backend pays node & tool owner with TransferTransaction.
 	•	Choose ED25519 keys for node signing to avoid ECDSA alias issues.
 
 ⸻
 
-Node client execution contract (standard)
+## Node client execution contract
 	•	Container must expose POST /run accepting JSON input: { input: {...} } and return { result: {...} }. The formats could be desceibed in the metadata.
 	•	Node client runs container, sends input, computes sha256(result) and signs it with local private key; returns { taskId, result, resultHash, signature }.
 	•	Backend verifies signature using stored public key before payout.
