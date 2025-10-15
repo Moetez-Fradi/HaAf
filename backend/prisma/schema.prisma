@@ -8,9 +8,137 @@ generator client {
 }
 
 model User {
+  id              String     @id @default(cuid())
+  displayName     String?
+  email           String     @unique
+  password        String
+  walletAccountId String?    @unique
+  createdAt       DateTime   @default(now())
+
+  tools           Tool[]        @relation("UserTools")
+  nodes           Node[]        @relation("UserNodes")
+  workflows       Workflow[]    @relation("UserWorkflows")
+  reviews         Review[]      @relation("UserReviews")
+  payments        Payment[]     @relation("UserPayments")
+}
+
+
+model Tool {
+  id                 String   @id @default(cuid())
+  name               String
+  description        String?
+  dockerImageUrl     String
+  ownerWallet        String
+  priceMode          PriceMode      @default(FIXED)
+  fixedPrice         Float          @default(0)
+  dynamicInputCoeff  Float          @default(0)
+  dynamicOutputCoeff Float          @default(0)
+  rating             Float?         @default(0)
+  usageCount         Int            @default(0)
+  energyBaseline     Float?         // avg joules/sec or kWh per call (computed during test phase)
+
+  owner              User      @relation("UserTools", fields: [ownerWallet], references: [walletAccountId])
+  tasks              Task[]
+  reviews            Review[]
+}
+
+model Node {
+  id             String       @id @default(cuid())
+  ownerUserId    String
+  publicKey      String
+  status         NodeStatus   @default(OFFLINE)
+  capabilities   Json?
+  reputation     Float        @default(1.0)
+  minPricePerSec Float?       // optional floor price
+
+  owner          User         @relation("UserNodes", fields: [ownerUserId], references: [id])
+  tasks          Task[]
+}
+
+model Workflow {
+  id               String     @id @default(cuid())
+  ownerUserId      String
+  graphJson        Json
+  fixedUsageFee    Float      @default(0) // workflow owner's fee per call
+  estimatedCost    Float?     // total estimated cost (precomputed)
+  energyEstimate   Float?     // total energy predicted for workflow
+  createdAt        DateTime   @default(now())
+
+  owner            User       @relation("UserWorkflows", fields: [ownerUserId], references: [id])
+  tasks            Task[]
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  workflowId  String
+  toolId      String
+  nodeId      String?
+  status      TaskStatus   @default(PENDING)
+  resultHash  String?
+  txHash      String?
+  energyUsed  Float?       // measured actual energy (J / Wh)
+  runtimeMs   Int?         // execution time for verification
+
+  workflow    Workflow     @relation(fields: [workflowId], references: [id])
+  tool        Tool         @relation(fields: [toolId], references: [id])
+  node        Node?        @relation(fields: [nodeId], references: [id])
+  payment     Payment?
+}
+
+model Payment {
+  id        String         @id @default(cuid())
+  taskId    String?        @unique
+  payer     String
+  amount    Float
+  status    PaymentStatus  @default(PENDING)
+  txHash    String?
+  receiver  String?        // wallet that received the payment
+  type      PaymentType    @default(EXECUTION)
+
+  task      Task?          @relation(fields: [taskId], references: [id])
+  user      User           @relation("UserPayments", fields: [payer], references: [walletAccountId])
+}
+
+model Review {
   id       String   @id @default(cuid())
-  email    String   @unique
-  password String
-  wallet   String?
-  createdAt DateTime @default(now())
+  toolId   String
+  userId   String
+  stars    Int
+  comment  String?
+
+  tool     Tool     @relation(fields: [toolId], references: [id])
+  user     User     @relation("UserReviews", fields: [userId], references: [id])
+}
+
+// ===== ENUMS =====
+enum NodeStatus {
+  ONLINE
+  OFFLINE
+  BUSY
+  ERROR
+}
+
+enum TaskStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum PaymentType {
+  EXECUTION     // normal tool/workflow execution payment
+  WORKFLOW_FEE  // workflow owner’s fee
+  TOOL_LICENSE  // one-time payment to tool owner when used in new workflow
+}
+
+enum PriceMode {
+  FIXED
+  DYNAMIC
+  HYBRID
 }
