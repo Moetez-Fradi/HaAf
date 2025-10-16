@@ -2,7 +2,6 @@ datasource db {
   provider = "postgresql"
   url      = env("DIRECT_URL")
 }
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -28,18 +27,45 @@ model Tool {
   name               String
   description        String?
   dockerImageUrl     String
-  ownerWallet        String
+
+  status             ToolStatus     @default(TESTING)
+
+  usagePrice         Float          @default(0)
   priceMode          PriceMode      @default(FIXED)
   fixedPrice         Float          @default(0)
   dynamicInputCoeff  Float          @default(0)
   dynamicOutputCoeff Float          @default(0)
+
+  requiredEnv        String[]       @default([])
+
   rating             Float?         @default(0)
+
   usageCount         Int            @default(0)
-  energyBaseline     Float?         // avg joules/sec or kWh per call (computed during test phase)
+  energyBaseline     Float?         
+
+  inputShape         String         @default("Not specified")
+  outputShape        String         @default("Not specified")
 
   owner              User      @relation("UserTools", fields: [ownerWallet], references: [walletAccountId])
   tasks              Task[]
   reviews            Review[]
+}
+
+model PrivateToolInstance {
+  id        String   @id @default(cuid())
+  userId    String
+  toolId    String
+  envCipher String   // AES-GCM base64 ciphertext (server key used)
+  createdAt DateTime @default(now())
+}
+
+model OneTimeToken {
+  id       String  @id @default(cuid())
+  jti      String  @unique
+  taskId   String
+  nodeId   String
+  expiresAt DateTime
+  used     Boolean @default(false)
 }
 
 model Node {
@@ -129,6 +155,11 @@ enum PaymentStatus {
   PENDING
   SUCCESS
   FAILED
+}
+
+enum ToolStatus {
+  TESTING
+  DEPLOYED
 }
 
 enum PaymentType {
