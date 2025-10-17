@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -30,6 +31,7 @@
     "@supabase/supabase-js": "^2.75.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
+    "class-validator": "^0.14.2",
     "dotenv": "^17.2.3",
     "jwt": "^0.2.0",
     "passport": "^0.7.0",
