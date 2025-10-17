@@ -7,9 +7,10 @@ import { AuthModule } from './auth/auth.module';
 import { ToolModule } from './tool/tool.module';
 import { ReviewModule } from './review/review.module';
 import { PrivateToolInstanceModule } from './private-tool-instance/private-tool-instance.module';
+import { WorkflowModule } from './workflow/workflow.module';
 
 @Module({
-  imports: [PrismaModule, UserModule, AuthModule, ToolModule, ReviewModule, PrivateToolInstanceModule],
+  imports: [PrismaModule, UserModule, AuthModule, ToolModule, ReviewModule, PrivateToolInstanceModule, WorkflowModule],
   controllers: [AppController],
   providers: [AppService],
 })
