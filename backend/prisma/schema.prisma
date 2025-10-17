@@ -27,6 +27,7 @@ model Tool {
   name               String
   description        String?
   dockerImageUrl     String
+  ownerWallet        String
 
   status             ToolStatus     @default(TESTING)
 
@@ -56,6 +57,7 @@ model PrivateToolInstance {
   userId    String
   toolId    String
   envCipher String   // AES-GCM base64 ciphertext (server key used)
+  usageUrl  String?
   createdAt DateTime @default(now())
 }
 
@@ -143,31 +145,26 @@ enum NodeStatus {
   BUSY
   ERROR
 }
-
 enum TaskStatus {
   PENDING
   RUNNING
   COMPLETED
   FAILED
 }
-
 enum PaymentStatus {
   PENDING
   SUCCESS
   FAILED
 }
-
 enum ToolStatus {
   TESTING
   DEPLOYED
 }
-
 enum PaymentType {
   EXECUTION     // normal tool/workflow execution payment
   WORKFLOW_FEE  // workflow owner’s fee
   TOOL_LICENSE  // one-time payment to tool owner when used in new workflow
 }
-
 enum PriceMode {
   FIXED
   DYNAMIC
