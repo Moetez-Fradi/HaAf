@@ -19,6 +19,7 @@ model User {
   workflows       Workflow[]    @relation("UserWorkflows")
   reviews         Review[]      @relation("UserReviews")
   payments        Payment[]     @relation("UserPayments")
+  workflowInstances  PrivateWorkflowInstance[]  @relation("UserPrivateWorkflowInstances")
 }
 
 
@@ -94,6 +95,16 @@ model Workflow {
 
   owner            User       @relation("UserWorkflows", fields: [ownerUserId], references: [id])
   tasks            Task[]
+}
+
+model PrivateWorkflowInstance {
+  id               String     @id @default(cuid())
+  graphJson        Json
+  ownerUserId      String
+  usageUrl         String?
+  createdAt        DateTime   @default(now())
+
+  owner            User       @relation("UserPrivateWorkflowInstances", fields: [ownerUserId], references: [id])
 }
 
 model Task {
