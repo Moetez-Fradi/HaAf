@@ -65,59 +65,69 @@ export class ToolService {
       return { success: true, deployed: false, pending: true, instance };
     }
 
-    return { success: true, deployed: true, tool: tool, instance };
+    return { success: false, deployed: false, tool: tool, instance };
   }
 
-  async runDeployTests(userId: string, requestingWallet: string, toolId: string, env: Record<string,string>, tests: Array<any>) {
-    const tool = await this.prisma.tool.findUnique({ where: { id: toolId } });
-    if (!tool) throw new NotFoundException('Tool not found');
-    if (tool.ownerWallet !== requestingWallet) throw new ForbiddenException('Only owner can deploy');
+  async runDeployTests(
+  userId: string,
+  requestingWallet: string,
+  toolId: string,
+  env: Record<string, string>,
+  tests: Array<any>,
+) {
+  const tool = await this.prisma.tool.findUnique({ where: { id: toolId } });
+  if (!tool) throw new NotFoundException('Tool not found');
+  if (tool.ownerWallet !== requestingWallet) throw new ForbiddenException('Only owner can deploy');
+  if (!env || typeof env !== 'object') throw new BadRequestException('env required');
 
-    if (!env || typeof env !== 'object') throw new BadRequestException('env required');
+  const envCipher = this.encryptEnv(env);
+  console.log("getting into runner...");
 
-    const envCipher = this.encryptEnv(env);
-    console.log("getting into runner...");
-
-    const runnerUrl = process.env.TOOL_DEPLOYER_URL || 'http://localhost:3111/run-and-test';
-    let resp;
-    try {
-      console.log("sent!")
-      resp = await lastValueFrom(this.httpService.post(runnerUrl, {
+  const runnerUrl = process.env.TOOL_DEPLOYER_URL || 'http://localhost:3111/run-and-test';
+  let resp;
+  try {
+    console.log("sent!");
+    resp = await lastValueFrom(
+      this.httpService.post(runnerUrl, {
         instanceId: `${toolId}-deploytest-${Date.now().toString(36)}`,
         dockerImageUrl: tool.dockerImageUrl,
         envCipher,
         tests,
-      }));
-    } catch (e) {
-      throw new InternalServerErrorException('Failed to contact test runner');
-    }
-
-    console.log("we got out response!");
-
-    const data = resp?.data;
-    if (!data) throw new InternalServerErrorException('Empty response from runner');
-
-    if (!data.passed) {
-      return { success: false, reason: 'tests_failed', details: data };
-    }
-
-    const pricing = data.pricing ?? {};
-    const energyBaseline = typeof data.energyBaseline === 'number' ? data.energyBaseline : null;
-
-    const updated = await this.prisma.tool.update({
-      where: { id: toolId },
-      data: {
-        status: 'DEPLOYED',
-        priceMode: pricing.priceMode ?? 'FIXED',
-        fixedPrice: pricing.fixedPrice ?? 0,
-        dynamicInputCoeff: pricing.dynamicInputCoeff ?? 0,
-        dynamicOutputCoeff: pricing.dynamicOutputCoeff ?? 0,
-        energyBaseline,
-      },
-    });
-
-    return { success: true, tool: updated, testReport: data };
+        inputShape: tool.inputShape ?? {},
+        outputShape: tool.outputShape ?? {},
+      }),
+    );
+  } catch (e) {
+    throw new InternalServerErrorException('Failed to contact test runner');
   }
+
+  console.log("we got our response!");
+
+  const data = resp?.data;
+  if (!data) throw new InternalServerErrorException('Empty response from runner');
+
+  if (!data.passed) {
+    return { success: false, reason: 'tests_failed', details: data };
+  }
+
+  const pricing = data.pricing ?? {};
+  const energyBaseline =
+    typeof data.energyBaseline === 'number' ? data.energyBaseline : null;
+
+  const updated = await this.prisma.tool.update({
+    where: { id: toolId },
+    data: {
+      status: 'DEPLOYED',
+      priceMode: pricing.priceMode ?? 'FIXED',
+      fixedPrice: pricing.fixedPrice ?? 0,
+      dynamicInputCoeff: pricing.dynamicInputCoeff ?? 0,
+      dynamicOutputCoeff: pricing.dynamicOutputCoeff ?? 0,
+      energyBaseline,
+    },
+  });
+
+  return { success: true, tool: updated, testReport: data };
+}
 
   async listTools(page = 1, limit = 10) {
     const tools = await this.prisma.tool.findMany({
