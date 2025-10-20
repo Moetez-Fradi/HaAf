@@ -428,33 +428,24 @@ app.post("/run-workflow-and-test", async (req, res) => {
 
     workflowStore.set(instanceId, { graphJson, containers });
 
-    const getByPath = (obj, path) => {
-      if (!path) return undefined;
-      return path.split(".").reduce((acc, key) => acc?.[key], obj);
-    };
-
-    const interpolateTemplate = (tpl, context) =>
+    const getByPath = (obj, path) => path?.split(".").reduce((acc, key) => acc?.[key], obj);
+    const interpolateTemplate = (tpl, ctx) =>
       tpl.replace(/\{\{(.*?)\}\}/g, (_, expr) => {
-        const val = getByPath(context, expr.trim());
+        const val = getByPath(ctx, expr.trim());
         return val == null ? "" : String(val);
       });
-
-    const evalCondition = (cond, context) => {
+    const evalCondition = (cond, ctx) => {
       if (!cond) return true;
-      try {
-        const fn = new Function("ctx", `with (ctx) { return (${cond}); }`);
-        return Boolean(fn(context));
-      } catch {
-        return false;
-      }
+      try { return Boolean(new Function("ctx", `with(ctx){return (${cond});}`)(ctx)); }
+      catch { return false; }
     };
 
-    const topoSortedNodes = topoSortNodes(graphJson.nodes, graphJson.edges || []);
+    const order = topoSortNodes(graphJson.nodes, graphJson.edges || []);
     const nodeResults = {};
 
     for (const test of tests) {
       const testResults = {};
-      for (const nodeId of topoSortedNodes) {
+      for (const nodeId of order) {
         const node = graphJson.nodes.find(n => n.id === nodeId);
         const url = containers[nodeId].usageUrl;
 
@@ -505,6 +496,7 @@ app.post("/run-workflow-and-test", async (req, res) => {
 
     res.json({
       success: true,
+      workflowUsageUrl: `${req.protocol}://${req.get("host")}/workflow/${instanceId}/run`,
       containers: Object.fromEntries(Object.entries(containers).map(([id, c]) => [id, c.usageUrl])),
       results: nodeResults,
     });
@@ -513,6 +505,7 @@ app.post("/run-workflow-and-test", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
 
 const port = process.env.PORT || 3111;
 app.listen(port, () => console.log(`Runner listening on ${port}`));

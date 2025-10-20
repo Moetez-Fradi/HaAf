@@ -147,7 +147,11 @@ export class WorkflowService {
       },
     });
 
-    return { success: true, workflow: updated.id, testReport: data };
+    const created = await this.prisma.privateWorkflowInstance.create({
+      data: { ownerUserId: userId, graphJson: payloadGraph, usageUrl: data.workflowUsageUrl },
+    });
+
+    return { success: true, workflow: updated.id, usageUrl: data.workflowUsageUrl, testReport: data };
   }
 
   async listWorkflows(page = 1, limit = 10) {
