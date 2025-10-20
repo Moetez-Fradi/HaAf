@@ -234,7 +234,6 @@ app.post("/run-workflow", async (req, res) => {
       await pullImage(node.dockerImageUrl);
       const hostPort = 30000 + Math.floor(Math.random() * 10000);
 
-      // per-node env preferred
       const envVarsNode = node.env || envVars;
 
       const container = await docker.createContainer({
@@ -256,7 +255,6 @@ app.post("/run-workflow", async (req, res) => {
       console.log(`Node ${node.name} running at ${containers[node.id].usageUrl}`);
     }
 
-    // Auto-stop after 10 minutes
     setTimeout(async () => {
       for (const c of Object.values(containers)) {
         try {
@@ -280,7 +278,7 @@ app.post("/run-workflow", async (req, res) => {
 app.post("/workflow/:instanceId/run", async (req, res) => {
   try {
     const { instanceId } = req.params;
-    const { input } = req.body;
+    const { input: globalInput = {} } = req.body;
     const wf = workflowStore.get(instanceId);
     if (!wf) return res.status(404).json({ error: "Workflow instance not found" });
 
@@ -289,52 +287,103 @@ app.post("/workflow/:instanceId/run", async (req, res) => {
     const edges = graphJson.edges || [];
 
     const order = topoSortNodes(nodes, edges);
-    const results = {}; // nodeId -> output
+    const results = {}; // nodeId -> { input, output, status, error, skipped }
+
+    const getByPath = (obj, path) => {
+      if (!path) return undefined;
+      const parts = path.split(".").map(p => p.trim());
+      let cur = obj;
+      for (const p of parts) {
+        if (cur == null) return undefined;
+        cur = cur[p];
+      }
+      return cur;
+    };
+
+    const interpolateTemplate = (tpl, context) => {
+      return tpl.replace(/\{\{(.*?)\}\}/g, (_, expr) => {
+        const key = expr.trim();
+        const val = getByPath(context, key);
+        return val === undefined || val === null ? "" : String(val);
+      });
+    };
+
+    const evalCondition = (cond, context) => {
+      if (!cond) return true;
+      try {
+        const fn = new Function("ctx", `with (ctx) { return (${cond}); }`);
+        return Boolean(fn(context));
+      } catch (err) {
+        return false;
+      }
+    };
 
     for (const nodeId of order) {
       const node = nodes.find(n => n.id === nodeId);
       const url = containers[nodeId].usageUrl;
 
-      // determine input for this node
       let nodeInput = {};
-      // find all incoming edges
       const incoming = edges.filter(e => e.to === nodeId);
-      if (incoming.length === 0) {
-        nodeInput = input;
-      } else {
-        // combine outputs of all sources whose conditions matched
-        for (const e of incoming) {
-          const fromOutput = results[e.from];
-          if (!fromOutput) continue;
 
-          let conditionPassed = true;
-          if (e.condition) {
-            try {
-              const fn = new Function(
-                ...Object.keys(fromOutput),
-                `return (${e.condition});`
-              );
-              conditionPassed = fn(...Object.values(fromOutput));
-            } catch {
-              conditionPassed = false;
-            }
-          }
+      if (incoming.length === 0) {
+        nodeInput = { ...globalInput };
+      } else {
+        for (const e of incoming) {
+          const fromResult = results[e.from];
+          if (!fromResult) continue;
+
+          const sourceOutput = fromResult.output ?? {};
+          const sourceInput = fromResult.input ?? {};
+          const mergedContext = { ...globalInput, ...sourceOutput, ...sourceInput };
+
+          const conditionPassed = evalCondition(e.condition, mergedContext);
           if (!conditionPassed) continue;
 
-          // build mapped input
           const mapped = {};
           for (const [k, v] of Object.entries(e.mapping || {})) {
-            mapped[k] = v.replace(/\{\{(.*?)\}\}/g, (_, expr) => {
-              return fromOutput[expr.trim()] ?? "";
-            });
+            if (typeof v === "string") {
+              mapped[k] = interpolateTemplate(v, mergedContext);
+            } else {
+              mapped[k] = v;
+            }
           }
+
+          if (!nodeInput._stack) nodeInput._stack = [];
+          nodeInput._stack.push({ from: e.from, mapping: mapped, matched: true });
           Object.assign(nodeInput, mapped);
         }
       }
 
-      console.log(`Running node ${node.name} with input:`, nodeInput);
-      const r = await axios.post(`${url}/run`, nodeInput, { timeout: 20000 });
-      results[nodeId] = r.data;
+      if (Object.keys(nodeInput).length === 0 && incoming.length > 0) {
+        results[nodeId] = {
+          input: {},
+          output: null,
+          status: "skipped",
+          reason: "no incoming edge matched or produced input"
+        };
+        continue;
+      }
+
+      try {
+        const r = await axios.post(`${url}/run`, nodeInput, { timeout: 20000 });
+        results[nodeId] = {
+          input: nodeInput,
+          output: r.data,
+          status: "ok"
+        };
+      } catch (err) {
+        const errInfo = {
+          message: err.message,
+          status: err.response?.status,
+          response: err.response?.data
+        };
+        results[nodeId] = {
+          input: nodeInput,
+          output: null,
+          status: "error",
+          error: errInfo
+        };
+      }
     }
 
     res.json({ success: true, results });
