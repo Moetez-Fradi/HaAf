@@ -7,34 +7,60 @@ import { lastValueFrom } from 'rxjs';
 export class WorkflowService {
   constructor(private prisma: PrismaService, private httpService: HttpService) {}
 
+  private async enrichGraphWithTools(graphJson: any) {
+    if (!graphJson?.nodes?.length) throw new BadRequestException('Invalid graph');
+
+    const toolIds = graphJson.nodes.map(n => n.toolId);
+    console.log(toolIds);
+    const tools = await this.prisma.tool.findMany({ where: { id: { in: toolIds } } });
+    const toolById = new Map(tools.map(t => [t.id, t]));
+
+    const missing = toolIds.filter(id => !toolById.has(id));
+    if (missing.length) throw new BadRequestException(`Tools not found: ${missing.join(',')}`);
+
+    const notDeployed = tools.filter(t => t.status !== 'DEPLOYED');
+    if (notDeployed.length) {
+      throw new BadRequestException(
+        `All tools must be DEPLOYED. Not deployed: ${notDeployed.map(t => t.name || t.id).join(', ')}`,
+      );
+    }
+
+    const nodes = graphJson.nodes.map((n: any) => {
+      const tool = toolById.get(n.toolId);
+      return {
+        ...n,
+        dockerImageUrl: tool?.dockerImageUrl,
+      };
+    });
+
+    return { nodes, edges: graphJson.edges ?? [] };
+  }
+
   async createWorkflow(userId: string, wallet: string, graphJson: any, fixedUsageFee?: number) {
-  if (!graphJson?.nodes?.length) throw new BadRequestException('Invalid graph');
+    if (!graphJson?.nodes?.length) throw new BadRequestException('Invalid graph');
 
-  const toolIds = graphJson.nodes.map(n => n.toolId);
-  console.log(toolIds);
-  const tools = await this.prisma.tool.findMany({ where: { id: { in: toolIds } } });
+    const toolIds = graphJson.nodes.map(n => n.toolId);
+    const tools = await this.prisma.tool.findMany({ where: { id: { in: toolIds } } });
 
-  console.log(tools);
+    const estimatedCost = tools.reduce((acc, t) =>
+      acc + (t.fixedPrice ?? 0) + (t.dynamicInputCoeff ?? 0) + (t.dynamicOutputCoeff ?? 0), 0
+    );
 
-  const estimatedCost = tools.reduce((acc, t) =>
-    acc + (t.fixedPrice ?? 0) + (t.dynamicInputCoeff ?? 0) + (t.dynamicOutputCoeff ?? 0), 0
-  );
+    const energyEstimate = tools.reduce((acc, t) =>
+      acc + (t.energyBaseline ?? 0), 0
+    );
 
-  const energyEstimate = tools.reduce((acc, t) =>
-    acc + (t.energyBaseline ?? 0), 0
-  );
+    const workflow = await this.prisma.workflow.create({
+      data: {
+        ownerUserId: userId,
+        graphJson,
+        fixedUsageFee: fixedUsageFee ?? 0,
+        estimatedCost,
+        energyEstimate,
+      },
+    });
 
-  const workflow = await this.prisma.workflow.create({
-    data: {
-      ownerUserId: userId,
-      graphJson,
-      fixedUsageFee: fixedUsageFee ?? 0,
-      estimatedCost,
-      energyEstimate,
-    },
-  });
-
-  return { success: true, workflow };
+    return { success: true, workflow };
   }
 
   async findById(id: string) {
@@ -56,19 +82,23 @@ export class WorkflowService {
     if (!wf) throw new NotFoundException('Workflow not found');
     if (wf.ownerUserId !== userId) throw new ForbiddenException('Only owner can test workflow');
 
+    const payloadGraph = graphJson;
+    const enriched = await this.enrichGraphWithTools(payloadGraph);
+
     const runnerUrl = process.env.WORKFLOW_RUNNER_URL || 'http://localhost:3111/run-workflow';
     const instanceId = `${workflowId}-test-${Date.now().toString(36)}`;
+
     let resp;
     try {
       resp = await lastValueFrom(this.httpService.post(runnerUrl, {
         instanceId,
-        graphJson: graphJson ?? wf.graphJson,
+        graphJson: { nodes: enriched.nodes, edges: enriched.edges },
       }));
     } catch (e) {
       throw new InternalServerErrorException('Failed to contact workflow runner');
     }
 
-    const data = await resp?.data;
+    const data = resp?.data;
     if (!data) throw new InternalServerErrorException('Empty response from runner');
 
     if (!data.usageUrl) {
@@ -76,10 +106,10 @@ export class WorkflowService {
     }
 
     const created = await this.prisma.privateWorkflowInstance.create({
-      data: { ownerUserId: userId, graphJson: graphJson ?? wf.graphJson, usageUrl: data.usageUrl },
+      data: { ownerUserId: userId, graphJson: payloadGraph, usageUrl: data.usageUrl },
     });
 
-    return { success: true, deployed: true, workflow: wf, instance: created };
+    return { success: true, deployed: false, workflow: wf, instance: created };
   }
 
   async runDeployTests(userId: string, workflowId: string, graphJson: any, tests: Array<any>) {
@@ -87,12 +117,15 @@ export class WorkflowService {
     if (!wf) throw new NotFoundException('Workflow not found');
     if (wf.ownerUserId !== userId) throw new ForbiddenException('Only owner can deploy');
 
+    const payloadGraph = graphJson ?? wf.graphJson;
+    const enriched = await this.enrichGraphWithTools(payloadGraph);
+
     const runnerUrl = process.env.WORKFLOW_RUNNER_URL || 'http://localhost:3111/run-workflow-and-test';
     let resp;
     try {
       resp = await lastValueFrom(this.httpService.post(runnerUrl, {
         instanceId: `${workflowId}-deploytest-${Date.now().toString(36)}`,
-        graphJson: graphJson ?? wf.graphJson,
+        graphJson: { nodes: enriched.nodes, edges: enriched.edges },
         tests,
       }));
     } catch (e) {

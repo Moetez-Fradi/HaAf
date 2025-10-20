@@ -200,7 +200,6 @@ app.post("/run-and-test", async (req, res) => {
 });
 
 const workflowStore = new Map();
-
 function topoSortNodes(nodes = [], edges = []) {
   const indeg = new Map(nodes.map(n => [n.id, 0]));
   const ad = new Map(nodes.map(n => [n.id, []]));
@@ -225,30 +224,53 @@ function topoSortNodes(nodes = [], edges = []) {
 app.post("/run-workflow", async (req, res) => {
   try {
     const { instanceId, graphJson, envCipher } = req.body;
-    if (!instanceId || !graphJson) return res.status(400).json({ error: "instanceId and graphJson required" });
+    if (!instanceId || !graphJson)
+      return res.status(400).json({ error: "instanceId and graphJson required" });
 
     const envVars = envCipher ? decryptEnv(envCipher) : {};
     const containers = {};
 
     for (const node of graphJson.nodes) {
       await pullImage(node.dockerImageUrl);
-
       const hostPort = 30000 + Math.floor(Math.random() * 10000);
+
+      // per-node env preferred
+      const envVarsNode = node.env || envVars;
+
       const container = await docker.createContainer({
         Image: node.dockerImageUrl,
-        Env: Object.entries(envVars).map(([k, v]) => `${k}=${v}`),
+        Env: Object.entries(envVarsNode).map(([k, v]) => `${k}=${v}`),
         ExposedPorts: { "80/tcp": {} },
-        HostConfig: { PortBindings: { "80/tcp": [{ HostPort: hostPort.toString() }] }, AutoRemove: true },
+        HostConfig: {
+          PortBindings: { "80/tcp": [{ HostPort: hostPort.toString() }] },
+          AutoRemove: true,
+        },
         name: `${instanceId}_${node.id}`,
       });
 
       await container.start();
-      containers[node.id] = { container, usageUrl: `http://localhost:${hostPort}` };
+      containers[node.id] = {
+        container,
+        usageUrl: `http://localhost:${hostPort}`,
+      };
       console.log(`Node ${node.name} running at ${containers[node.id].usageUrl}`);
     }
 
+    // Auto-stop after 10 minutes
+    setTimeout(async () => {
+      for (const c of Object.values(containers)) {
+        try {
+          await c.container.stop();
+        } catch {}
+      }
+      workflowStore.delete(instanceId);
+      console.log(`Workflow ${instanceId} stopped after 10min`);
+    }, 10 * 60 * 1000);
+
     workflowStore.set(instanceId, { graphJson, containers });
-    res.json({ usageUrl: `${req.protocol}://${req.get("host")}/workflow/${instanceId}/run` });
+    res.json({
+      usageUrl: `${req.protocol}://${req.get("host")}/workflow/${instanceId}/run`,
+    });
   } catch (e) {
     console.error("run-workflow error:", e);
     res.status(500).json({ error: e.message });
@@ -256,101 +278,73 @@ app.post("/run-workflow", async (req, res) => {
 });
 
 app.post("/workflow/:instanceId/run", async (req, res) => {
-  const { instanceId } = req.params;
-  const { input } = req.body;
-  const wf = workflowStore.get(instanceId);
-  if (!wf) return res.status(404).json({ error: "Workflow instance not found" });
+  try {
+    const { instanceId } = req.params;
+    const { input } = req.body;
+    const wf = workflowStore.get(instanceId);
+    if (!wf) return res.status(404).json({ error: "Workflow instance not found" });
 
-  const { graphJson, containers } = wf;
+    const { graphJson, containers } = wf;
+    const nodes = graphJson.nodes;
+    const edges = graphJson.edges || [];
 
-  let currentOutputs = {};
-  let executed = new Set();
+    const order = topoSortNodes(nodes, edges);
+    const results = {}; // nodeId -> output
 
-  const getNodeOutput = async (nodeId, inputData) => {
-    const node = graphJson.nodes.find(n => n.id === nodeId);
-    const c = containers[nodeId];
-    const resp = await axios.post(`${c.usageUrl}/run`, inputData, { timeout: 20000 });
-    currentOutputs[nodeId] = resp.data;
-    executed.add(nodeId);
-    return resp.data;
-  };
+    for (const nodeId of order) {
+      const node = nodes.find(n => n.id === nodeId);
+      const url = containers[nodeId].usageUrl;
 
-  for (const node of graphJson.nodes) {
-    if (!graphJson.edges.some(e => e.to === node.id)) {
-      await getNodeOutput(node.id, input);
+      // determine input for this node
+      let nodeInput = {};
+      // find all incoming edges
+      const incoming = edges.filter(e => e.to === nodeId);
+      if (incoming.length === 0) {
+        nodeInput = input;
+      } else {
+        // combine outputs of all sources whose conditions matched
+        for (const e of incoming) {
+          const fromOutput = results[e.from];
+          if (!fromOutput) continue;
+
+          let conditionPassed = true;
+          if (e.condition) {
+            try {
+              const fn = new Function(
+                ...Object.keys(fromOutput),
+                `return (${e.condition});`
+              );
+              conditionPassed = fn(...Object.values(fromOutput));
+            } catch {
+              conditionPassed = false;
+            }
+          }
+          if (!conditionPassed) continue;
+
+          // build mapped input
+          const mapped = {};
+          for (const [k, v] of Object.entries(e.mapping || {})) {
+            mapped[k] = v.replace(/\{\{(.*?)\}\}/g, (_, expr) => {
+              return fromOutput[expr.trim()] ?? "";
+            });
+          }
+          Object.assign(nodeInput, mapped);
+        }
+      }
+
+      console.log(`Running node ${node.name} with input:`, nodeInput);
+      const r = await axios.post(`${url}/run`, nodeInput, { timeout: 20000 });
+      results[nodeId] = r.data;
     }
+
+    res.json({ success: true, results });
+  } catch (e) {
+    console.error("workflow run error:", e);
+    res.status(500).json({ error: e.message });
   }
-
-  for (const edge of graphJson.edges) {
-    const fromOutput = currentOutputs[edge.from];
-    if (!fromOutput) continue;
-
-    const condition = edge.condition ? eval(edge.condition) : true;
-    if (!condition) continue;
-
-    const mapping = {};
-    for (const [k, v] of Object.entries(edge.mapping)) {
-      mapping[k] = v.replace(/\{\{(.*?)\}\}/g, (_, key) => fromOutput[key.trim()] ?? input[key.trim()]);
-    }
-
-    await getNodeOutput(edge.to, mapping);
-  }
-
-  const lastNode = graphJson.nodes.find(n => !graphJson.edges.some(e => e.from === n.id));
-  const finalOut = currentOutputs[lastNode?.id] ?? currentOutputs;
-  res.json({ success: true, output: finalOut });
 });
 
 app.post("/run-workflow-and-test", async (req, res) => {
-  try {
-    const { instanceId, graphJson, tests = [] } = req.body;
-    if (!instanceId || !graphJson) return res.status(400).json({ error: "instanceId, graphJson required" });
-
-    const results = [];
-    let totalMs = 0;
-    let totalOutBytes = 0;
-    let totalMemMB = 0;
-
-    for (const t of tests) {
-      const start = Date.now();
-      try {
-        const runResp = await axios.post(`http://localhost:${process.env.PORT || 3111}/workflow/${instanceId}/run`, { input: t.input });
-        const out = runResp.data.result ?? runResp.data;
-        const duration = Date.now() - start;
-        const outStr = JSON.stringify(out);
-        const outBytes = Buffer.byteLength(outStr, "utf8");
-        totalMs += duration;
-        totalOutBytes += outBytes;
-        results.push({ input: t.input, output: out, ok: JSON.stringify(out) === JSON.stringify(t.expected), timeMs: duration });
-      } catch (e) {
-        results.push({ input: t.input, error: e.message, ok: false });
-      }
-    }
-
-    const testCount = Math.max(1, results.length);
-    const avgMs = totalMs / testCount;
-    const avgOutBytes = totalOutBytes / testCount;
-    const stability = 1; // simplified
-    const priceMode = "FIXED";
-    const energyBaseline = 0;
-
-    const baseCost = avgMs * 0.000001;
-    const fixedPrice = Number((baseCost * 1.5).toFixed(6));
-    const dynamicInputCoeff = 0;
-    const dynamicOutputCoeff = Number((avgOutBytes * 0.0000002).toFixed(6));
-
-    workflowStore.set(instanceId, { graphJson, createdAt: Date.now() });
-
-    return res.json({
-      passed: results.every(r => r.ok),
-      metrics: { avgMs, avgOutBytes, results },
-      pricing: { priceMode, fixedPrice, dynamicInputCoeff, dynamicOutputCoeff, estimatedCost: fixedPrice },
-      energyBaseline,
-    });
-  } catch (e) {
-    console.error("run-workflow-and-test error:", e);
-    res.status(500).json({ error: e.message });
-  }
 });
 
 const port = process.env.PORT || 3111;
