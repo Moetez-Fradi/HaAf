@@ -79,6 +79,7 @@ model Node {
   capabilities   Json?
   reputation     Float        @default(1.0)
   minPricePerSec Float?       // optional floor price
+  url            String?
 
   owner          User         @relation("UserNodes", fields: [ownerUserId], references: [id])
   tasks          Task[]
@@ -151,7 +152,6 @@ model Review {
   user     User     @relation("UserReviews", fields: [userId], references: [id])
 }
 
-// ===== ENUMS =====
 enum NodeStatus {
   ONLINE
   OFFLINE
@@ -178,7 +178,6 @@ enum PaymentType {
   WORKFLOW_FEE  // workflow owner’s fee
   TOOL_LICENSE  // one-time payment to tool owner when used in new workflow
 }
-
 enum PriceMode {
   FIXED
   DYNAMIC
