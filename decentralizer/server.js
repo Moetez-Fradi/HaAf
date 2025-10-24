@@ -287,7 +287,7 @@ app.post("/workflow/:instanceId/run", async (req, res) => {
     const edges = graphJson.edges || [];
 
     const order = topoSortNodes(nodes, edges);
-    const results = {}; // nodeId -> { input, output, status, error, skipped }
+    const results = {};
 
     const getByPath = (obj, path) => {
       if (!path) return undefined;
@@ -394,7 +394,118 @@ app.post("/workflow/:instanceId/run", async (req, res) => {
 });
 
 app.post("/run-workflow-and-test", async (req, res) => {
+  try {
+    const { instanceId, graphJson, envCipher, tests = [], globalInput = {} } = req.body;
+    if (!instanceId || !graphJson) 
+      return res.status(400).json({ error: "instanceId and graphJson required" });
+
+    const envVars = envCipher ? decryptEnv(envCipher) : {};
+    const containers = {};
+
+    for (const node of graphJson.nodes) {
+      await pullImage(node.dockerImageUrl);
+      const hostPort = 30000 + Math.floor(Math.random() * 10000);
+      const envVarsNode = node.env || envVars;
+
+      const container = await docker.createContainer({
+        Image: node.dockerImageUrl,
+        Env: Object.entries(envVarsNode).map(([k, v]) => `${k}=${v}`),
+        ExposedPorts: { "80/tcp": {} },
+        HostConfig: {
+          PortBindings: { "80/tcp": [{ HostPort: hostPort.toString() }] },
+          AutoRemove: true,
+        },
+        name: `${instanceId}_${node.id}`,
+      });
+
+      await container.start();
+      containers[node.id] = {
+        container,
+        usageUrl: `http://localhost:${hostPort}`,
+      };
+      console.log(`Node ${node.name} running at ${containers[node.id].usageUrl}`);
+    }
+
+    workflowStore.set(instanceId, { graphJson, containers });
+
+    const getByPath = (obj, path) => path?.split(".").reduce((acc, key) => acc?.[key], obj);
+    const interpolateTemplate = (tpl, ctx) =>
+      tpl.replace(/\{\{(.*?)\}\}/g, (_, expr) => {
+        const val = getByPath(ctx, expr.trim());
+        return val == null ? "" : String(val);
+      });
+    const evalCondition = (cond, ctx) => {
+      if (!cond) return true;
+      try { return Boolean(new Function("ctx", `with(ctx){return (${cond});}`)(ctx)); }
+      catch { return false; }
+    };
+
+    const order = topoSortNodes(graphJson.nodes, graphJson.edges || []);
+    const nodeResults = {};
+
+    for (const test of tests) {
+      const testResults = {};
+      for (const nodeId of order) {
+        const node = graphJson.nodes.find(n => n.id === nodeId);
+        const url = containers[nodeId].usageUrl;
+
+        let nodeInput = {};
+        const incoming = (graphJson.edges || []).filter(e => e.to === nodeId);
+
+        if (incoming.length === 0) nodeInput = { ...globalInput, ...test.input };
+        else {
+          for (const e of incoming) {
+            const fromResult = nodeResults[e.from] || {};
+            const merged = { ...globalInput, ...fromResult.output, ...fromResult.input };
+            if (!evalCondition(e.condition, merged)) continue;
+
+            const mapped = {};
+            for (const [k, v] of Object.entries(e.mapping || {})) {
+              mapped[k] = typeof v === "string" ? interpolateTemplate(v, merged) : v;
+            }
+
+            if (!nodeInput._stack) nodeInput._stack = [];
+            nodeInput._stack.push({ from: e.from, mapping: mapped, matched: true });
+            Object.assign(nodeInput, mapped);
+          }
+        }
+
+        if (Object.keys(nodeInput).length === 0 && incoming.length > 0) {
+          testResults[nodeId] = { input: {}, output: null, status: "skipped" };
+          continue;
+        }
+
+        try {
+          const r = await axios.post(`${url}/run`, nodeInput, { timeout: 20000 });
+          testResults[nodeId] = { input: nodeInput, output: r.data, status: "ok" };
+        } catch (err) {
+          testResults[nodeId] = {
+            input: nodeInput,
+            output: null,
+            status: "error",
+            error: {
+              message: err.message,
+              status: err.response?.status,
+              response: err.response?.data,
+            },
+          };
+        }
+      }
+      nodeResults[test.name || `test_${tests.indexOf(test)}`] = testResults;
+    }
+
+    res.json({
+      success: true,
+      workflowUsageUrl: `${req.protocol}://${req.get("host")}/workflow/${instanceId}/run`,
+      containers: Object.fromEntries(Object.entries(containers).map(([id, c]) => [id, c.usageUrl])),
+      results: nodeResults,
+    });
+  } catch (e) {
+    console.error("run-workflow-and-test error:", e);
+    res.status(500).json({ error: e.message });
+  }
 });
+
 
 const port = process.env.PORT || 3111;
 app.listen(port, () => console.log(`Runner listening on ${port}`));

@@ -9,9 +9,11 @@ import { ReviewModule } from './review/review.module';
 import { PrivateToolInstanceModule } from './private-tool-instance/private-tool-instance.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { PrivateWorkflowInstanceModule } from './private-workflow-instance/private-workflow-instance.module';
+import { NodeModule } from './node/node.module';
+import { TaskModule } from './task/task.module';
 
 @Module({
-  imports: [PrismaModule, UserModule, AuthModule, ToolModule, ReviewModule, PrivateToolInstanceModule, WorkflowModule, PrivateWorkflowInstanceModule],
+  imports: [PrismaModule, UserModule, AuthModule, ToolModule, ReviewModule, PrivateToolInstanceModule, WorkflowModule, PrivateWorkflowInstanceModule, NodeModule, TaskModule],
   controllers: [AppController],
   providers: [AppService],
 })

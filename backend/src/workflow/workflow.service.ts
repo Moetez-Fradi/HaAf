@@ -109,7 +109,7 @@ export class WorkflowService {
       data: { ownerUserId: userId, graphJson: payloadGraph, usageUrl: data.usageUrl },
     });
 
-    return { success: true, deployed: false, workflow: wf, instance: created };
+    return { success: true, deployed: false, workflow: wf.id, instance: created.id };
   }
 
   async runDeployTests(userId: string, workflowId: string, graphJson: any, tests: Array<any>) {
@@ -120,8 +120,9 @@ export class WorkflowService {
     const payloadGraph = graphJson ?? wf.graphJson;
     const enriched = await this.enrichGraphWithTools(payloadGraph);
 
-    const runnerUrl = process.env.WORKFLOW_RUNNER_URL || 'http://localhost:3111/run-workflow-and-test';
+    const runnerUrl = process.env.WORKFLOW_DEPLOYER_URL || 'http://localhost:3111/run-workflow-and-test';
     let resp;
+    console.log("we're here");
     try {
       resp = await lastValueFrom(this.httpService.post(runnerUrl, {
         instanceId: `${workflowId}-deploytest-${Date.now().toString(36)}`,
@@ -134,23 +135,23 @@ export class WorkflowService {
 
     const data = resp?.data;
     if (!data) throw new InternalServerErrorException('Empty response from runner');
+    console.log(data);
 
-    if (!data.passed) {
+    if (!data.success) {
       return { success: false, reason: 'tests_failed', details: data };
     }
-
-    const pricing = data.pricing ?? {};
-    const energyBaseline = typeof data.energyBaseline === 'number' ? data.energyBaseline : null;
-
     const updated = await this.prisma.workflow.update({
       where: { id: workflowId },
       data: {
-        estimatedCost: pricing.estimatedCost ?? wf.estimatedCost,
-        energyEstimate: energyBaseline ?? wf.energyEstimate,
+        workflowStatus : "DEPLOYED"
       },
     });
 
-    return { success: true, workflow: updated, testReport: data };
+    const created = await this.prisma.privateWorkflowInstance.create({
+      data: { ownerUserId: userId, graphJson: payloadGraph, usageUrl: data.workflowUsageUrl },
+    });
+
+    return { success: true, workflow: updated.id, usageUrl: data.workflowUsageUrl, testReport: data };
   }
 
   async listWorkflows(page = 1, limit = 10) {
