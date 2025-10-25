@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException,
 import { PrismaService } from '../prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { lastValueFrom } from 'rxjs';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class WorkflowService {
@@ -34,6 +35,28 @@ export class WorkflowService {
     });
 
     return { nodes, edges: graphJson.edges ?? [] };
+  }
+
+  private async fallbackToLocalRunner(workflowId, enriched, tests, userId) {
+    const runnerUrl = process.env.WORKFLOW_DEPLOYER_URL || 'http://localhost:3111/run-workflow-and-test';
+    let resp;
+    try {
+      resp = await lastValueFrom(this.httpService.post(runnerUrl, {
+        instanceId: `${workflowId}-deploytest-${Date.now().toString(36)}`,
+        graphJson: { nodes: enriched.nodes, edges: enriched.edges },
+        tests,
+      }));
+    } catch (e) {
+      throw new InternalServerErrorException('Failed to contact workflow test runner');
+    }
+    const data = resp?.data;
+    if (!data) throw new InternalServerErrorException('Empty response from runner');
+    if (!data.success) return { success: false, reason: 'tests_failed', details: data };
+    await this.prisma.workflow.update({ where: { id: workflowId }, data: { workflowStatus: 'DEPLOYED' } });
+    const created = await this.prisma.privateWorkflowInstance.create({
+      data: { ownerUserId: userId, graphJson: enriched, usageUrl: data.workflowUsageUrl },
+    });
+    return { success: true, workflow: workflowId, usageUrl: data.workflowUsageUrl, testReport: data };
   }
 
   async createWorkflow(userId: string, wallet: string, graphJson: any, fixedUsageFee?: number) {
@@ -119,39 +142,103 @@ export class WorkflowService {
 
     const payloadGraph = graphJson ?? wf.graphJson;
     const enriched = await this.enrichGraphWithTools(payloadGraph);
+    const requiredCount = enriched.nodes.length;
 
-    const runnerUrl = process.env.WORKFLOW_DEPLOYER_URL || 'http://localhost:3111/run-workflow-and-test';
-    let resp;
-    console.log("we're here");
-    try {
-      resp = await lastValueFrom(this.httpService.post(runnerUrl, {
-        instanceId: `${workflowId}-deploytest-${Date.now().toString(36)}`,
-        graphJson: { nodes: enriched.nodes, edges: enriched.edges },
-        tests,
-      }));
-    } catch (e) {
-      throw new InternalServerErrorException('Failed to contact workflow test runner');
+    const availableNodes = await this.prisma.node.findMany({ where: { status: 'ONLINE' } });
+    if (availableNodes.length < requiredCount) {
+      console.log("Not enough available nodes, falling back to local runner");
+      return await this.fallbackToLocalRunner(workflowId, enriched, tests, userId);
+    }
+    const selectedNodes = availableNodes.slice(0, requiredCount);
+    console.log("nodes exist!");
+
+  const tokens: { nodeId: string; jti: string; expiresAt: Date }[] = [];
+  try {
+    const tx = await this.prisma.$transaction(
+      selectedNodes.map(n => this.prisma.node.update({
+        where: { id: n.id },
+        data: { status: 'BUSY' },
+      }))
+    );
+
+    const deployments: { nodeId: string; usageUrl: string }[] = [];
+
+    for (let i = 0; i < selectedNodes.length; i++) {
+      const node = selectedNodes[i];
+      const nodeSpec = enriched.nodes[i];
+
+      console.log(`Deploying to node ${node.id} at ${node.url}`);
+
+      const jti = uuidv4();
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+      await this.prisma.oneTimeToken.create({
+        data: {
+          jti,
+          taskId: `${workflowId}-deploy-${Date.now().toString(36)}-${i}`,
+          nodeId: node.id,
+          expiresAt,
+        },
+      });
+
+      const deployUrl = `${node.url.replace(/\/$/, '')}/start-container`;
+      try {
+        console.log("deploying");
+        const resp = await lastValueFrom(this.httpService.post(
+          deployUrl,
+          {
+            instanceId: `${workflowId}-${nodeSpec.id}`,
+            dockerImageUrl: nodeSpec.dockerImageUrl,
+            env: nodeSpec.env || {},
+            token: jti,
+          },
+          { timeout: 60_000 }
+        ));
+
+        const usageUrl = resp.data?.usageUrl;
+        if (!usageUrl) throw new Error('Missing usageUrl from node');
+
+        deployments.push({ nodeId: node.id, usageUrl });
+      } catch (err) {
+        throw new Error(`Failed to deploy on node ${node.id}: ${err?.message || err}`);
+      }
     }
 
-    const data = resp?.data;
-    if (!data) throw new InternalServerErrorException('Empty response from runner');
-    console.log(data);
+    const mapping: Record<string, string> = {};
+    enriched.nodes.forEach((n, idx) => {
+      mapping[n.id] = deployments[idx].usageUrl;
+    });
 
-    if (!data.success) {
-      return { success: false, reason: 'tests_failed', details: data };
-    }
-    const updated = await this.prisma.workflow.update({
-      where: { id: workflowId },
+    const runnerUrl = process.env.WORKFLOW_DECENTRALIZED_RUNNER_URL || 'http://localhost:3111/register-decentralized';
+    const registerResp = await lastValueFrom(this.httpService.post(runnerUrl, {
+      instanceId: `${workflowId}-deploytest-${Date.now().toString(36)}`,
+      graphJson: enriched,
+      mapping,
+      tests,
+    }));
+
+    const data = registerResp.data;
+    if (!data || !data.workflowUsageUrl) throw new InternalServerErrorException('Runner failed to register decentralized workflow');
+
+    await this.prisma.workflow.update({ where: { id: workflowId }, data: { workflowStatus: 'DEPLOYED' } });
+    const created = await this.prisma.privateWorkflowInstance.create({
       data: {
-        workflowStatus : "DEPLOYED"
+        ownerUserId: userId,
+        graphJson: payloadGraph,
+        usageUrl: data.workflowUsageUrl,
       },
     });
 
-    const created = await this.prisma.privateWorkflowInstance.create({
-      data: { ownerUserId: userId, graphJson: payloadGraph, usageUrl: data.workflowUsageUrl },
-    });
+    return { success: true, workflow: workflowId, usageUrl: data.workflowUsageUrl, mapping, runnerReport: data };
 
-    return { success: true, workflow: updated.id, usageUrl: data.workflowUsageUrl, testReport: data };
+  } catch (err) {
+    await Promise.all(selectedNodes.map(async n => {
+      try { await this.prisma.node.update({ where: { id: n.id }, data: { status: 'ONLINE' } }); } catch {}
+    }));
+    await this.prisma.oneTimeToken.deleteMany({
+      where: { nodeId: { in: selectedNodes.map(n => n.id) }, used: false }
+    }).catch(()=>{});
+    throw new InternalServerErrorException(err.message || String(err));
+  }
   }
 
   async listWorkflows(page = 1, limit = 10) {

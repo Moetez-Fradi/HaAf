@@ -506,6 +506,197 @@ app.post("/run-workflow-and-test", async (req, res) => {
   }
 });
 
+const decentralizedStore = new Map();
+
+app.post('/register-decentralized', async (req, res) => {
+  try {
+    const { instanceId, graphJson, mapping, tests = [] } = req.body;
+    if (!instanceId || !graphJson || !mapping) return res.status(400).json({ error: 'instanceId, graphJson, mapping required' });
+
+    // mapping: { nodeId: usageUrl }
+    decentralizedStore.set(instanceId, { graphJson, mapping, tests });
+
+    // Return the unified usageUrl for orchestrated runs
+    const workflowUsageUrl = `${req.protocol}://${req.get('host')}/decentralized/workflow/${instanceId}/run`;
+    res.json({ success: true, workflowUsageUrl });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/decentralized/workflow/:instanceId/run', async (req, res) => {
+  try {
+    const { instanceId } = req.params;
+    const wf = decentralizedStore.get(instanceId);
+    if (!wf) return res.status(404).json({ error: 'Workflow not found' });
+
+    const { graphJson, mapping } = wf;
+    const { input: globalInput = {} } = req.body;
+
+    // Normalize nodes list
+    const nodes = graphJson.nodes || [];
+    // Build edges: prefer explicit edges if present; otherwise derive from node.inputs
+    let edges = graphJson.edges || [];
+    if ((!edges || edges.length === 0) && nodes.some(n => n.inputs && n.inputs.length)) {
+      edges = [];
+      for (const node of nodes) {
+        for (const inp of node.inputs || []) {
+          if (!inp.source) continue;
+          // Build a mapping template that references the source's output.
+          // If input has a 'path' field, reference it; otherwise use whole output.
+          const sourcePath = inp.path ? `${inp.source}.${inp.path}` : inp.source;
+          edges.push({
+            from: inp.source,
+            to: node.id,
+            // mapping will map the destination input name -> template that resolves to the relevant value
+            mapping: { [inp.name]: `{{${sourcePath}}}` },
+            condition: inp.condition || null
+          });
+        }
+      }
+    }
+
+    // Helpers (kept similar to centralized implementation)
+    const getByPath = (obj, path) => {
+      if (!path) return undefined;
+      const parts = path.split('.').map(p => p.trim());
+      let cur = obj;
+      for (const p of parts) {
+        if (cur == null) return undefined;
+        cur = cur[p];
+      }
+      return cur;
+    };
+
+    const interpolateTemplate = (tpl, context) => {
+      return tpl.replace(/\{\{(.*?)\}\}/g, (_, expr) => {
+        const key = expr.trim();
+        const val = getByPath(context, key);
+        return val === undefined || val === null ? "" : String(val);
+      });
+    };
+
+    const evalCondition = (cond, context) => {
+      if (!cond) return true;
+      try {
+        const fn = new Function("ctx", `with (ctx) { return (${cond}); }`);
+        return Boolean(fn(context));
+      } catch (err) {
+        return false;
+      }
+    };
+
+    // Topo sort using your earlier helper (nodes must be an array with .id)
+    const nodeOrder = topoSortNodes(nodes, edges);
+
+    const results = {}; // will hold { input, output, status, error? } keyed by nodeId
+
+    for (const nodeId of nodeOrder) {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) {
+        results[nodeId] = { input: {}, output: null, status: 'error', error: 'node-not-found' };
+        continue;
+      }
+
+      // incoming edges for this node
+      const incoming = edges.filter(e => e.to === nodeId);
+
+      // Build nodeInput
+      let nodeInput = {};
+      if (incoming.length === 0) {
+        // no dependencies -> start with global input
+        nodeInput = { ...globalInput };
+      } else {
+        // For each incoming edge, merge context from the source result, evaluate condition, apply mapping
+        for (const e of incoming) {
+          const fromResult = results[e.from];
+          if (!fromResult) {
+            // If a source didn't run (missing), skip this edge
+            continue;
+          }
+
+          const sourceOutput = fromResult.output || {};
+          const sourceInput = fromResult.input || {};
+          // mergedContext allows mapping templates to reference fields directly
+          const mergedContext = { ...globalInput, ...sourceOutput, ...sourceInput };
+
+          const conditionPassed = evalCondition(e.condition, mergedContext);
+          if (!conditionPassed) continue;
+
+          const mapped = {};
+          for (const [k, v] of Object.entries(e.mapping || {})) {
+            if (typeof v === "string") {
+              mapped[k] = interpolateTemplate(v, mergedContext);
+            } else {
+              // allow literal values
+              mapped[k] = v;
+            }
+          }
+
+          if (!nodeInput._stack) nodeInput._stack = [];
+          nodeInput._stack.push({ from: e.from, mapping: mapped, matched: true });
+
+          // merge mapped fields into nodeInput (same semantics as centralized)
+          Object.assign(nodeInput, mapped);
+        }
+      }
+
+      // If this node had incoming edges but produced no input (no edge matched), mark skipped
+      if (Object.keys(nodeInput).length === 0 && incoming.length > 0) {
+        results[nodeId] = {
+          input: {},
+          output: null,
+          status: "skipped",
+          reason: "no incoming edge matched or produced input"
+        };
+        continue;
+      }
+
+      // Resolve the remote URL for this node from the provided mapping
+      const nodeUrl = mapping[nodeId];
+      if (!nodeUrl) {
+        results[nodeId] = {
+          input: nodeInput,
+          output: null,
+          status: "error",
+          error: `No mapped node URL for ${nodeId}`
+        };
+        continue;
+      }
+
+      // Call remote node
+      try {
+        const r = await axios.post(`${nodeUrl}/run`, nodeInput, { timeout: 20000 });
+
+        // Accept both shapes: { output: ... } (some runners) or raw response body
+        const normalizedOut = r.data && r.data.output !== undefined ? r.data.output : r.data;
+
+        results[nodeId] = {
+          input: nodeInput,
+          output: normalizedOut,
+          status: "ok"
+        };
+      } catch (err) {
+        results[nodeId] = {
+          input: nodeInput,
+          output: null,
+          status: "error",
+          error: {
+            message: err.message,
+            status: err.response?.status,
+            response: err.response?.data
+          }
+        };
+      }
+    }
+
+    return res.json({ success: true, results });
+  } catch (err) {
+    console.error('Decentralized workflow run error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 const port = process.env.PORT || 3111;
 app.listen(port, () => console.log(`Runner listening on ${port}`));

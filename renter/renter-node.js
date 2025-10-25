@@ -134,12 +134,42 @@ async function main() {
         const { instanceId, input = {} } = req.body;
         if (!containers.has(instanceId)) return res.status(404).json({ error: "Container not found" });
         const { container, url } = containers.get(instanceId);
-        const result = await axios.post(`${url}/run`, input, { timeout: 20000 });
+        const result = await axios.post(`${url}/run`, input);
         res.json({ success: true, output: result.data });
       } catch (err) {
         res.status(500).json({ error: err.message });
       }
     });
+
+    process.on("SIGINT", async () => {
+      console.log("Node shutting down...");
+      await axios.patch(`${BACKEND_URL}/nodes/status`,
+        { nodeId: node.id, status: "OFFLINE" },
+        { headers: { Authorization: `Bearer ${token}` } }
+      ).catch(err => console.warn("Failed to update node status:", err.message));
+      process.exit(0);
+    });
+
+    process.on("SIGTERM", async () => {
+      console.log("Node shutting down...");
+      await axios.patch(`${BACKEND_URL}/nodes/status`,
+        { nodeId: node.id, status: "OFFLINE" },
+        { headers: { Authorization: `Bearer ${token}` } }
+      ).catch(err => console.warn("Failed to update node status:", err.message));
+      process.exit(0);
+    });
+
+    setInterval(async () => {
+      try {
+        await axios.patch(`${BACKEND_URL}/nodes/status`,
+          { nodeId: node.id, status: "ONLINE" },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } catch (err) {
+        console.warn("Failed to send heartbeat:", err.message);
+      }
+    }, 60000);
+
 
     app.listen(NODE_PORT, () => console.log(`Node listening on port ${NODE_PORT}`));
   } catch (err) {

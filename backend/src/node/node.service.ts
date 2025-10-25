@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterNodeDto } from './dto/node.dto';
+import { NodeStatus } from '@prisma/client';
 
 @Injectable()
 export class NodeService {
@@ -28,7 +29,7 @@ export class NodeService {
           publicKey,
           capabilities,
           minPricePerSec: minPricePerSec || 0,
-          url,
+          url: url || "EMPTY",
           status: 'ONLINE',
         },
       });
@@ -45,5 +46,21 @@ export class NodeService {
     }
 
     return node;
+  }
+
+  async updateStatus(nodeId: string, status: NodeStatus) {
+    const node = await this.prisma.node.findFirst({
+      where: { id: nodeId },
+    });
+    if (!node) throw new Error('Node not found');
+
+    return this.prisma.node.update({
+      where: { id: node.id },
+      data: { status, lastSeenAt: new Date() },
+    });
+}
+
+  async getAllNodes() {
+    return this.prisma.node.findMany();
   }
 }

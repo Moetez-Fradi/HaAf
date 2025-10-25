@@ -3,10 +3,11 @@ import { WorkflowService } from './workflow.service';
 import { WorkflowController } from './workflow.controller';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { HttpModule } from '@nestjs/axios';
+import { NodeService } from 'src/node/node.service';
 
 @Module({
   imports: [PrismaModule, HttpModule],
-  providers: [WorkflowService],
+  providers: [WorkflowService, NodeService],
   controllers: [WorkflowController]
 })
 export class WorkflowModule {}
