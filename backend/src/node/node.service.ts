@@ -9,6 +9,14 @@ export class NodeService {
   async registerNode(userId: string, dto: RegisterNodeDto) {
     const { publicKey, capabilities, minPricePerSec, url } = dto;
 
+    let user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user?.walletAccountId) {
+      throw new Error('You have no wallet linked to your account. Please link a wallet first.');
+    }
+
     let node = await this.prisma.node.findFirst({
       where: { ownerUserId: userId, publicKey },
     });
