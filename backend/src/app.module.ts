@@ -11,9 +11,11 @@ import { WorkflowModule } from './workflow/workflow.module';
 import { PrivateWorkflowInstanceModule } from './private-workflow-instance/private-workflow-instance.module';
 import { NodeModule } from './node/node.module';
 import { TaskModule } from './task/task.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { NodeMonitorModule } from './node-monitor/node-monitor.module';
 
 @Module({
-  imports: [PrismaModule, UserModule, AuthModule, ToolModule, ReviewModule, PrivateToolInstanceModule, WorkflowModule, PrivateWorkflowInstanceModule, NodeModule, TaskModule],
+  imports: [PrismaModule, UserModule, AuthModule, ToolModule, ReviewModule, PrivateToolInstanceModule, WorkflowModule, PrivateWorkflowInstanceModule, NodeModule, TaskModule, ScheduleModule.forRoot(), NodeMonitorModule],
   controllers: [AppController],
   providers: [AppService],
 })

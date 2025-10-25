@@ -79,7 +79,9 @@ model Node {
   capabilities   Json?
   reputation     Float        @default(1.0)
   minPricePerSec Float?       // optional floor price
-  url            String?
+  url            String
+
+  lastSeenAt     DateTime?
 
   owner          User         @relation("UserNodes", fields: [ownerUserId], references: [id])
   tasks          Task[]
