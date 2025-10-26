@@ -222,6 +222,7 @@ export class WorkflowService {
     await this.prisma.workflow.update({ where: { id: workflowId }, data: { workflowStatus: 'DEPLOYED' } });
     const created = await this.prisma.privateWorkflowInstance.create({
       data: {
+        workflowId: workflowId,
         ownerUserId: userId,
         graphJson: payloadGraph,
         usageUrl: data.workflowUsageUrl,
