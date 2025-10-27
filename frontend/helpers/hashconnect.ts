@@ -1,6 +1,9 @@
 import { HashConnect } from "hashconnect";
 
-
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ||
+  'http://localhost:3001' 
+) as string;
 
 export default async function connectToWallet() {
   const hc = new HashConnect();
@@ -27,7 +30,8 @@ export default async function connectToWallet() {
     return { 
       success: true, 
       pairingString,
-      state 
+      state,
+      hc 
     };
   } catch (error: any) {
     console.error("Error:", error);

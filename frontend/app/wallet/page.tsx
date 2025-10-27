@@ -11,6 +11,7 @@ export default function WalletPage() {
   const [pairingString, setPairingString] = useState<string>("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [walletAccountId, setWalletAccountId] = useState<string>("");
 
   const handleConnect = async () => {
     try {
@@ -23,6 +24,25 @@ export default function WalletPage() {
      
       if (result.success && result.pairingString) {
         setPairingString(result.pairingString);
+        
+        // Listen for pairing event
+        if (result.hc) {
+          result.hc.pairingEvent.on((pairingData: any) => {
+            console.log("Pairing event:", pairingData);
+            
+            if (pairingData.accountIds && pairingData.accountIds.length > 0) {
+              const accountId = pairingData.accountIds[0];
+              setWalletAccountId(accountId);
+              setIsConnected(true);
+              
+              // Save to database
+              saveWalletToDatabase(accountId);
+              
+              alert(`Wallet connected successfully! Account: ${accountId}`);
+            }
+          });
+        }
+        
         alert("Pairing string generated! Copy it and paste in HashPack wallet, or approve the connection if HashPack opened automatically.");
       } else {
         alert("Failed to connect: " + result.error);
@@ -32,6 +52,40 @@ export default function WalletPage() {
       alert("Error connecting to wallet");
     } finally {
       setIsConnecting(false);
+    }
+  };
+
+  const saveWalletToDatabase = async (accountId: string) => {
+    try {
+      const token = localStorage.getItem('authToken'); 
+      
+      if (!token) {
+        console.error("No auth token found");
+        alert("Please log in first before connecting wallet");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/users/link-wallet`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          walletAccountId: accountId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save wallet to database');
+      }
+
+      const data = await response.json();
+      console.log("Wallet saved to database:", data);
+      
+    } catch (error) {
+      console.error("Error saving wallet to database:", error);
+      alert("Wallet connected but failed to save to database. Please try again.");
     }
   };
 
@@ -67,7 +121,7 @@ export default function WalletPage() {
 
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center relative z-10 px-4 pb-20">
-        <div className="w-full max-w-2xl"> {/* Increased max-width */}
+        <div className="w-full max-w-2xl">
           {/* Logo and Title */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-6">
@@ -89,21 +143,29 @@ export default function WalletPage() {
 
           {/* Wallet Card */}
           <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 shadow-xl shadow-cyan-500/5">
+            {/* Connection Status */}
+            {isConnected && walletAccountId && (
+              <div className="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <p className="text-green-300 font-semibold mb-1">✓ Wallet Connected!</p>
+                <p className="text-green-200 text-sm">Account: {walletAccountId}</p>
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className="border border-cyan-500/40 rounded-xl p-6 text-center bg-cyan-500/10 cursor-pointer hover:bg-cyan-500/20 transition-all">
                 <div className="font-semibold text-lg text-white mb-4">Hedera Wallet</div>
                 <button 
                   onClick={handleConnect}
-                  disabled={isConnecting}
+                  disabled={isConnecting || isConnected}
                   className="w-full rounded-md bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 text-white font-semibold hover:from-cyan-400 hover:to-blue-400 transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isConnecting ? "Generating Pairing Code..." : "Connect"}
+                  {isConnecting ? "Generating Pairing Code..." : isConnected ? "Connected" : "Connect"}
                 </button>
               </div>
             </div>
 
             {/* Pairing String Display */}
-            {pairingString && (
+            {pairingString && !isConnected && (
               <div className="mt-6 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
                 <p className="text-cyan-300 text-sm mb-2">
                   Copy this pairing string and paste it in your HashPack wallet:
