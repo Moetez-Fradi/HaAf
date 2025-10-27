@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import connectToWallet from "../../helpers/hashconnect";
 
 const API_BASE = (
@@ -7,21 +8,36 @@ const API_BASE = (
 ) as string;
 
 export default function WalletPage() {
+  const [pairingString, setPairingString] = useState<string>("");
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+
   const handleConnect = async () => {
     try {
+      setIsConnecting(true);
+      setPairingString("");
       console.log("Connecting to wallet...");
+      
       const result: any = await connectToWallet();
       console.log("Connection result:", result);
      
-      if (result.success) {
-        alert("Wallet connection initiated! Check your HashPack wallet.");
+      if (result.success && result.pairingString) {
+        setPairingString(result.pairingString);
+        alert("Pairing string generated! Copy it and paste in HashPack wallet, or approve the connection if HashPack opened automatically.");
       } else {
         alert("Failed to connect: " + result.error);
       }
     } catch (error) {
       console.error("Connection error:", error);
       alert("Error connecting to wallet");
+    } finally {
+      setIsConnecting(false);
     }
+  };
+
+  const copyPairingString = () => {
+    navigator.clipboard.writeText(pairingString);
+    alert("Pairing string copied to clipboard! Now paste it in HashPack wallet.");
   };
 
   return (
@@ -51,7 +67,7 @@ export default function WalletPage() {
 
       {/* Main content */}
       <div className="flex-1 flex items-center justify-center relative z-10 px-4 pb-20">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-2xl"> {/* Increased max-width */}
           {/* Logo and Title */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-6">
@@ -78,11 +94,47 @@ export default function WalletPage() {
                 <div className="font-semibold text-lg text-white mb-4">Hedera Wallet</div>
                 <button 
                   onClick={handleConnect}
-                  className="w-full rounded-md bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 text-white font-semibold hover:from-cyan-400 hover:to-blue-400 transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40"
+                  disabled={isConnecting}
+                  className="w-full rounded-md bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 text-white font-semibold hover:from-cyan-400 hover:to-blue-400 transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Connect
+                  {isConnecting ? "Generating Pairing Code..." : "Connect"}
                 </button>
               </div>
+            </div>
+
+            {/* Pairing String Display */}
+            {pairingString && (
+              <div className="mt-6 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+                <p className="text-cyan-300 text-sm mb-2">
+                  Copy this pairing string and paste it in your HashPack wallet:
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-black/30 p-2 rounded text-cyan-100 text-xs break-all">
+                    {pairingString}
+                  </code>
+                  <button
+                    onClick={copyPairingString}
+                    className="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-sm transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p className="text-cyan-400 text-xs mt-2">
+                  Or check your HashPack wallet for a connection request
+                </p>
+              </div>
+            )}
+
+            {/* Connection Instructions */}
+            <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <h3 className="text-white font-semibold mb-2">How to connect:</h3>
+              <ol className="text-cyan-300 text-sm list-decimal list-inside space-y-1">
+                <li>Click the Connect button above</li>
+                <li>Copy the pairing string that appears</li>
+                <li>Open HashPack wallet and go to "Pair Wallet"</li>
+                <li>Paste the pairing string or approve the popup</li>
+                <li>Wait for the connection to complete</li>
+              </ol>
             </div>
 
             <div className="text-center mt-6">
