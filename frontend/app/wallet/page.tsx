@@ -57,7 +57,7 @@ export default function WalletPage() {
 
   const saveWalletToDatabase = async (accountId: string) => {
     try {
-      const token = localStorage.getItem('authToken'); 
+      const token = localStorage.getItem('access_token'); 
       
       if (!token) {
         console.error("No auth token found");

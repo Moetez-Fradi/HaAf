@@ -16,6 +16,7 @@
     "@walletconnect/types": "^2.22.4",
     "@walletconnect/web3wallet": "^1.16.1",
     "crypto-browserify": "^3.12.1",
+    "crypto-js": "4.1.1",
     "events": "^3.3.0",
     "hashconnect": "0.1.9",
     "hashgraph": "^0.0.5",
@@ -39,5 +40,8 @@
     "eslint-config-next": "14.0.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.18"
+  },
+  "overrides": {
+    "crypto-js": "4.1.1"
   }
 }
