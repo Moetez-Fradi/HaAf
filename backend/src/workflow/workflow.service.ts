@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { lastValueFrom } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
+import { HederaService } from '../hedera/hedera.service';
+
 
 @Injectable()
 export class WorkflowService {
