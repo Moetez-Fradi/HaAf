@@ -37,6 +37,38 @@ export class ReviewService {
     return review;
   }
 
+  async getToolReviewsWithComments(toolId: string) {
+    const tool = await this.prisma.tool.findUnique({ where: { id: toolId } });
+    if (!tool) throw new NotFoundException('Tool not found');
+
+    return this.prisma.review.findMany({
+      where: {
+        toolId,
+        comment: { not: null },
+      },
+      include: { user: { select: { id: true, displayName: true } } },
+    });
+  }
+
+  async getToolReviewStats(toolId: string) {
+    const tool = await this.prisma.tool.findUnique({ where: { id: toolId } });
+    if (!tool) throw new NotFoundException('Tool not found');
+
+    const [count, avg] = await Promise.all([
+      this.prisma.review.count({ where: { toolId } }),
+      this.prisma.review.aggregate({
+        where: { toolId },
+        _avg: { stars: true },
+      }),
+    ]);
+
+    return {
+      toolId,
+      totalReviews: count,
+      averageRating: avg._avg.stars ?? 0,
+    };
+  }
+
   async updateReview(reviewId: string, userId: string, dto: UpdateReviewDto) {
     const rev = await this.prisma.review.findUnique({ where: { id: reviewId } });
     if (!rev) throw new NotFoundException('Review not found');

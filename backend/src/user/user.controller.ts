@@ -24,7 +24,7 @@ export class UserController {
       throw new Error('Wallet account ID is required');
     }
 
-    const userId = req.user.sub; 
+    const userId = req.user.id; 
     const updatedUser = await this.userService.linkWallet(userId, walletAccountId);
     
     return {
