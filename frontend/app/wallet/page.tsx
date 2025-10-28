@@ -137,7 +137,7 @@ export default function WalletPage() {
               Connect Your Wallet
             </h1>
             <p className="text-cyan-400 text-base">
-              Choose your preferred wallet provider to continue
+              click on connect to continue
             </p>
           </div>
 

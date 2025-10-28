@@ -112,23 +112,23 @@ export default function HomePage() {
             Decentralize <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Intelligence</span>
           </h1>
           <p className="text-xl md:text-2xl text-cyan-400 mb-12 max-w-3xl mx-auto">
-            Build the Future of AI. A DePIN + AI Agents Marketplace for limitless innovation.
+Decentralize Intelligence. Build the Future.
           </p>
 
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-20">
             <Link
-              href="/home"
+              href="/workflows"
               className="px-8 py-4 rounded-md bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold hover:from-cyan-400 hover:to-blue-400 transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40"
             >
-             Explore  Workflows & Tools
+             Workflows
             </Link>
             <Link
-              href="/builder"
+              href="/tools"
               className="px-8 py-4 rounded-md bg-white/10 backdrop-blur-sm border border-white/20 text-white font-semibold hover:bg-white/20 transition-all"
             >
-              Become a Builder
+              Tools
             </Link>
           </div>
 
