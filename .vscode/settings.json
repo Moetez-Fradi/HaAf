@@ -1,0 +1,30 @@
+{
+  // Disable built-in validators workspace-wide (applies to all folders)
+  "css.validate": false,
+  "less.validate": false,
+  "scss.validate": false,
+
+  // Ignore unknown at-rules from the CSS/SCSS/LESS linters
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+
+  // Prefer tailwindcss language service for CSS files
+  "tailwindCSS.includeLanguages": {
+    "css": "tailwindcss",
+    "plaintext": "html",
+    "javascript": "javascript",
+    "javascriptreact": "html",
+    "typescript": "javascript",
+    "typescriptreact": "html"
+  },
+
+  // Map plain .css to tailwindcss for better IntelliSense
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+
+  "editor.quickSuggestions": {
+    "strings": true
+  }
+}

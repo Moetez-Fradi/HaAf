@@ -13,14 +13,24 @@ export class UserController {
     return this.userService.findByEmailNoPassword(email);
   }
 
+
   @UseGuards(JwtAuthGuard)
   @Post('link-wallet')
   async linkWallet(
-    @Request() req,
+    @Request() req: any,
     @Body('walletAccountId') walletAccountId: string,
   ) {
-    const userId = req.user.id;
-    return this.userService.linkWallet(userId, walletAccountId);
+    if (!walletAccountId) {
+      throw new Error('Wallet account ID is required');
+    }
+
+    const userId = req.user.sub; 
+    const updatedUser = await this.userService.linkWallet(userId, walletAccountId);
+    
+    return {
+      message: 'Wallet linked successfully',
+      user: updatedUser,
+    };
   }
 
   @UseGuards(JwtAuthGuard)
