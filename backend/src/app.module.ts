@@ -13,9 +13,10 @@ import { NodeModule } from './node/node.module';
 import { TaskModule } from './task/task.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { NodeMonitorModule } from './node-monitor/node-monitor.module';
+import { HederaModule } from './hedera/hedera.module';
 
 @Module({
-  imports: [PrismaModule, UserModule, AuthModule, ToolModule, ReviewModule, PrivateToolInstanceModule, WorkflowModule, PrivateWorkflowInstanceModule, NodeModule, TaskModule, ScheduleModule.forRoot(), NodeMonitorModule],
+  imports: [PrismaModule, UserModule, AuthModule, ToolModule, ReviewModule, PrivateToolInstanceModule, WorkflowModule, PrivateWorkflowInstanceModule, NodeModule, TaskModule, ScheduleModule.forRoot(), NodeMonitorModule, HederaModule],
   controllers: [AppController],
   providers: [AppService],
 })
