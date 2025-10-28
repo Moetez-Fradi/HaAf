@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
+import { useUserStore } from '../../store/useUserStore';
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ||
@@ -11,8 +11,8 @@ const API_BASE = (
 ) as string;
 
 
-type AccessToken = { access_token: string };
-
+type AccessToken = { access_token: string, email: string, userId:  string };
+const { setUser } = useUserStore.getState();
 
 export default function LoginPage() {
   const router = useRouter();
@@ -72,6 +72,7 @@ export default function LoginPage() {
      
       if (typeof window !== 'undefined') {
         localStorage.setItem('access_token', data.access_token);
+        setUser(data.access_token, data.email, data.userId);
       }
      
       router.replace('/home');
@@ -86,22 +87,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0b14] relative overflow-hidden flex flex-col">
-      {/* Top Navigation Bar */}
-      <div className="relative z-20 flex items-center justify-between px-8 py-4">
-        <div className="flex items-center gap-2">
-          <svg width="24" height="24" viewBox="0 0 24 24" className="text-cyan-400" fill="none">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity="0.6"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2"/>
-          </svg>
-          <span className="text-white text-xl font-bold">AgentHive</span>
-        </div>
-        <div className="flex items-center gap-6 text-sm">
-          <a href="#" className="text-gray-300 hover:text-white">Marketplace</a>
-          <a href="#" className="text-gray-300 hover:text-white">Builder</a>
-          <a href="#" className="text-gray-300 hover:text-white">Dashboard</a>
-        </div>
-      </div>
           {/* Decorative wave */}
       <div
         aria-hidden
@@ -176,6 +161,8 @@ export default function LoginPage() {
                 />
               </div>
 
+              <br></br>
+
 
               <button
                 type="submit"
@@ -202,7 +189,13 @@ export default function LoginPage() {
 
 
             <p className="text-center text-sm text-cyan-400 mt-4">
-              Forgot password?
+              Forgot password? {' '}
+                                <button
+                    type="button"
+                    className="font-semibold text-white hover:text-cyan-300 underline underline-offset-4"
+                  >
+                     restore
+                  </button>
             </p>
           </div>
         </div>
@@ -212,12 +205,7 @@ export default function LoginPage() {
       {/* Footer */}
       <div className="relative z-10 text-center pb-6 px-4">
         <p className="text-xs text-gray-500 leading-relaxed max-w-4xl mx-auto">
-          Copyright All Systems are protected Inc / blablabla / i am home /
-          {' '}
-          <a href="#" className="text-cyan-400 hover:text-cyan-300">
-            attributions
-          </a>
-          , take me home
+          Copyright All Systems are protected. © 2025 AgentHive. All rights reserved.
         </p>
       </div>
     </div>

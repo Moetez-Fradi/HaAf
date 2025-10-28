@@ -2,30 +2,32 @@ import { Controller, Post, Body, Query, UseGuards, Request, Param, Delete, HttpC
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { WorkflowService } from './workflow.service';
 
-@UseGuards(JwtAuthGuard)
 @Controller('workflows')
 export class WorkflowController {
   constructor(private workflowService: WorkflowService) {}
-
+  @UseGuards(JwtAuthGuard)
   @Post()
   async create(
     @Request() req,
     @Body('graphJson') graphJson: any,
     @Body('fixedUsageFee') fixedUsageFee?: number,
+    @Body('name') name?: string,
+    @Body('description') description?: string,
   ) {
-    return this.workflowService.createWorkflow(req.user.id, req.user.walletAccountId, graphJson, fixedUsageFee);
+    return this.workflowService.createWorkflow(req.user.id, req.user.walletAccountId, graphJson, name, fixedUsageFee, description);
   }
-
+  @UseGuards(JwtAuthGuard)
   @Post(':id/test')
   async test(@Request() req, @Param('id') id: string, @Body('graphJson') graphJson: any) {
     return this.workflowService.testWorkflow(req.user.id, id, graphJson);
   }
-
+  @UseGuards(JwtAuthGuard)
   @Post(':id/deploy')
   async deploy(@Request() req, @Param('id') id: string, @Body('graphJson') graphJson: any, @Body('tests') tests: Array<any>) {
     return this.workflowService.runDeployTests(req.user.id, id, graphJson, tests || []);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @HttpCode(204)
   async remove(@Request() req, @Param('id') id: string) {

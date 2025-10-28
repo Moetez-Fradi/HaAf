@@ -59,31 +59,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#0a0b14] relative overflow-hidden flex flex-col">
-      {/* Top Navigation Bar */}
-      <div className="relative z-20 flex items-center justify-between px-8 py-4">
-        <div className="flex items-center gap-2">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-cyan-400">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity="0.6"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2"/>
-          </svg>
-          <span className="text-white text-xl font-bold">AgentHive</span>
-        </div>
-        <div className="flex items-center gap-6 text-sm">
-          <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
-          <a href="#values" className="text-gray-300 hover:text-white transition-colors">Values</a>
-          <a href="#about" className="text-gray-300 hover:text-white transition-colors">About</a>
-          <a href="#team" className="text-gray-300 hover:text-white transition-colors">Team</a>
-          <a href="#contact" className="text-gray-300 hover:text-white transition-colors">Contact</a>
-          <Link 
-            href="/login" 
-            className="px-4 py-2 rounded-md bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-all"
-          >
-            Login In
-          </Link>
-        </div>
-      </div>
-
 
       {/* Decorative waves */}
       <div

@@ -61,7 +61,7 @@ export class WorkflowService {
     return { success: true, workflow: workflowId, usageUrl: data.workflowUsageUrl, testReport: data };
   }
 
-  async createWorkflow(userId: string, wallet: string, graphJson: any, fixedUsageFee?: number) {
+  async createWorkflow(userId: string, wallet: string, graphJson: any, name?: string, fixedUsageFee?: number, description?: string) {
     if (!graphJson?.nodes?.length) throw new BadRequestException('Invalid graph');
 
     const toolIds = graphJson.nodes.map(n => n.toolId);
@@ -77,6 +77,8 @@ export class WorkflowService {
 
     const workflow = await this.prisma.workflow.create({
       data: {
+        name: name,
+        description: description,
         ownerUserId: userId,
         graphJson,
         fixedUsageFee: fixedUsageFee ?? 0,
@@ -89,7 +91,10 @@ export class WorkflowService {
   }
 
   async findById(id: string) {
-    const wf = await this.prisma.workflow.findUnique({ where: { id } });
+    const wf = await this.prisma.workflow.findUnique({
+      where: { id },
+      include: { owner: true },
+    });
     if (!wf) throw new NotFoundException('Workflow not found');
     return wf;
   }
@@ -248,6 +253,14 @@ export class WorkflowService {
     const items = await this.prisma.workflow.findMany({
       skip: (page - 1) * limit,
       take: limit,
+      where : { workflowStatus: "DEPLOYED"},
+        include: {
+    owner: {
+      select: {
+        displayName: true,
+      },
+    },
+  },
     });
     const total = await this.prisma.workflow.count();
     return { workflows: items, total, page, limit };
@@ -255,10 +268,19 @@ export class WorkflowService {
 
   async searchWorkflows(query: string, limit = 10) {
     if (!query) return [];
+
+    const normalizedQuery = query.trim();
+
     const items = await this.prisma.workflow.findMany({
-      where: {},
+      where: {
+        OR: [
+          { name: { contains: normalizedQuery } },
+          { description: { contains: normalizedQuery } },
+        ],
+      },
       take: limit,
     });
+
     return items;
   }
 }

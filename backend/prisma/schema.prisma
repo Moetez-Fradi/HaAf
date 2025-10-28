@@ -79,6 +79,8 @@ model Node {
 
 model Workflow {
   id                      String                    @id @default(cuid())
+  name                    String                    @default("random workflow")
+  description             String?                   @default("Not specified")
   ownerUserId             String
   graphJson               Json
   fixedUsageFee           Float                     @default(0)

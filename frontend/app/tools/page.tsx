@@ -163,33 +163,6 @@ export default function ToolsPage() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
       </div>
 
-      {/* Navigation */}
-      <div className="relative z-30 flex items-center justify-between px-8 py-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity="0.9"/>
-              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2"/>
-              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2"/>
-            </svg>
-          </div>
-          <span className="text-white text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-            AgentHive
-          </span>
-        </div>
-        <div className="flex items-center gap-8 text-sm">
-          <Link href="/marketplace" className="text-gray-300 hover:text-cyan-400 transition-colors font-medium">Marketplace</Link>
-          <Link href="/builder" className="text-gray-300 hover:text-cyan-400 transition-colors font-medium">Builder</Link>
-          <Link href="/dashboard" className="text-gray-300 hover:text-cyan-400 transition-colors font-medium">Dashboard</Link>
-          <Link 
-            href="/login" 
-            className="px-6 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-all font-medium"
-          >
-            Sign In
-          </Link>
-        </div>
-      </div>
-
       {/* Main Content - Split Layout */}
       <div className="relative z-20 px-8 py-8 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

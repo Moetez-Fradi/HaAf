@@ -78,21 +78,6 @@
     return (
       <div className="min-h-screen bg-[#0a0b14] relative overflow-hidden flex flex-col">
         {/* Top Navigation Bar */}
-        <div className="relative z-20 flex items-center justify-between px-8 py-4">
-          <div className="flex items-center gap-2">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-cyan-400">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity="0.6"/>
-              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2"/>
-              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2"/>
-            </svg>
-            <span className="text-white text-xl font-bold">AgentHive</span>
-          </div>
-          <div className="flex items-center gap-6 text-sm">
-            <a href="#" className="text-gray-300 hover:text-white">Marketplace</a>
-            <a href="#" className="text-gray-300 hover:text-white">Builder</a>
-            <a href="#" className="text-gray-300 hover:text-white">Dashboard</a>
-          </div>
-        </div>
         {/* Decorative wave */}
         <div
           aria-hidden
@@ -193,26 +178,16 @@
                   {isLoading ? 'Creating account…' : 'Create Account'} {/* Fix button text */}
                 </button>
               </form>
-
-
-              <p className="text-center text-sm text-cyan-400 mt-4">
-                Forgot password?
-              </p>
             </div>
           </div>
         </div>
 
 
-        {/* Footer */}
-        <div className="relative z-10 text-center pb-6 px-4">
-          <p className="text-xs text-gray-500 leading-relaxed max-w-4xl mx-auto">
-            Copyright All Systems ar protected Inc / blablabla/ i am home /{' '}
-            <a href="#" className="text-cyan-400 hover:text-cyan-300">
-              attributions
-            </a>
-            , take me home
-          </p>
-        </div>
+              <div className="relative z-10 text-center pb-6 px-4">
+        <p className="text-xs text-gray-500 leading-relaxed max-w-4xl mx-auto">
+          Copyright All Systems are protected. © 2025 AgentHive. All rights reserved.
+        </p>
+      </div>
       </div>
     );
   }
