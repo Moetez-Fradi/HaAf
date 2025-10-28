@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import { lastValueFrom } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
+import { HederaService } from '../hedera/hedera.service';
+
 
 @Injectable()
 export class WorkflowService {
@@ -222,6 +224,7 @@ export class WorkflowService {
     await this.prisma.workflow.update({ where: { id: workflowId }, data: { workflowStatus: 'DEPLOYED' } });
     const created = await this.prisma.privateWorkflowInstance.create({
       data: {
+        workflowId: workflowId,
         ownerUserId: userId,
         graphJson: payloadGraph,
         usageUrl: data.workflowUsageUrl,
