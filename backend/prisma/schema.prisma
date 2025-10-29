@@ -87,6 +87,7 @@ model Workflow {
   estimatedCost           Float?
   energyEstimate          Float?
   createdAt               DateTime                  @default(now())
+  usageUrl                String?
   workflowStatus          ToolStatus                @default(TESTING)
   PrivateWorkflowInstance PrivateWorkflowInstance[]
   tasks                   Task[]

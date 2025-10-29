@@ -14,7 +14,28 @@ export class WorkflowController {
     @Body('name') name?: string,
     @Body('description') description?: string,
   ) {
-    return this.workflowService.createWorkflow(req.user.id, req.user.walletAccountId, graphJson, name, fixedUsageFee, description);
+    // Step 1: create the workflow normally
+    const workflow = await this.workflowService.createWorkflow(
+      req.user.id,
+      req.user.walletAccountId,
+      graphJson,
+      name,
+      fixedUsageFee,
+      description
+    );
+
+    // Step 2: automatically test it using same graphJson
+    const testResult = await this.workflowService.testWorkflow(
+      req.user.id,
+      workflow.workflow.id,
+      graphJson
+    );
+
+    return {
+      success: true,
+      workflow: workflow.workflow,
+      test: testResult,
+    };
   }
   @UseGuards(JwtAuthGuard)
   @Post(':id/test')

@@ -105,7 +105,8 @@ function FlowCanvas() {
   const [newNodeId, setNewNodeId] = useState('');
   const [newNodeName, setNewNodeName] = useState('');
   const [localCondition, setLocalCondition] = useState('');
-  const [localMapping, setLocalMapping] = useState(''); // editable mapping textarea
+  const [localMapping, setLocalMapping] = useState('');
+  const [fixedUsageFee, setFixedUsageFee] = useState<number>(0);
 
   // NEW: sidebar visibility state
   const [leftVisible, setLeftVisible] = useState(true);
@@ -130,6 +131,24 @@ function FlowCanvas() {
     };
     load();
   }, []);
+
+  useEffect(() => {
+  const data = {
+    nodes,
+    edges,
+    // viewport: project.getViewport() // if you want to store zoom/pan
+  };
+  localStorage.setItem('myWorkflowGraph', JSON.stringify(data));
+}, [nodes, edges]);
+
+useEffect(() => {
+  const saved = localStorage.getItem('myWorkflowGraph');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    setNodes(parsed.nodes || []);
+    setEdges(parsed.edges || []);
+  }
+}, [project, setNodes, setEdges]);
 
   useEffect(() => {
     // keep localCondition and localMapping in sync when selection changes
@@ -295,34 +314,78 @@ function FlowCanvas() {
   };
 
   /* ───── Save ───── */
-  const saveWorkflow = async () => {
-    const graphJson = {
-      nodes: nodes.map(n => ({
-        id: n.id,
-        name: n.data.label,
-        toolId: n.data.toolId,
-        env: n.data.env,
-      })),
-      edges: edges.map(e => ({
-        from: e.source,
-        to: e.target,
-        condition: e.data?.condition,
-        mapping: e.data?.mapping,
-      })),
-    };
-    try {
-      await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/workflows`, {
+/* ───── Save and Auto-Test Workflow ───── */
+const saveWorkflow = async () => {
+  const graphJson = {
+    nodes: nodes.map(n => ({
+      id: n.id,
+      name: n.data.label,
+      toolId: n.data.toolId,
+      env: n.data.env, // include env vars for each node
+    })),
+    edges: edges.map(e => ({
+      from: e.source,
+      to: e.target,
+      condition: e.data?.condition,
+      mapping: e.data?.mapping,
+    })),
+  };
+
+  try {
+    console.log(
+      {
         name: workflowName,
         description: workflowDesc,
-        graphJson,
-      });
-      alert('Workflow created!');
-      router.push('/workflows');
-    } catch (e) {
-      console.error(e);
-      alert('Failed');
+        fixedUsageFee, // numeric, optional
+        graphJson,     // includes env vars
+      }
+    )
+    const tokenString = localStorage.getItem('access_token');
+    let token = '';
+    if (tokenString) {
+      try {
+        const parsed = JSON.parse(tokenString);
+        token = parsed.state?.token ?? '';
+      } catch (e) {
+        console.error('Failed to parse access_token from localStorage', e);
+      }
     }
-  };
+    console.log(token);
+    const res = await axios.post(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/workflows`,
+      {
+        name: workflowName,
+        description: workflowDesc,
+        fixedUsageFee, // numeric, optional
+        graphJson,     // includes env vars
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`, // adapt to your auth storage
+        },
+      }
+    );
+
+    // backend returns { success: true, workflow, test }
+    const { workflow, test } = res.data;
+
+    // test.instance is created privateWorkflowInstance id (per your backend)
+    const instanceId = test?.instance;
+    if (instanceId) {
+      // redirect to testing UI
+      router.push(`/workflows/testing/${instanceId}`);
+      return;
+    }
+
+    // fallback: navigate to workflows list if instance not present
+    alert('Workflow created but no test instance returned. Redirecting to /workflows');
+    router.push('/workflows');
+  } catch (e: any) {
+    console.error(e);
+    alert(`❌ Error:\n${e.response?.data?.message || e.message}`);
+  }
+};
+
 
   return (
     <div className="flex min-h-screen bg-[#050b15] text-white font-inter">
@@ -374,6 +437,17 @@ function FlowCanvas() {
               placeholder="Workflow description"
               className="w-full bg-transparent border-none focus:outline-none text-gray-300 resize-none"
             />
+            <div className="flex items-center gap-2 text-gray-300 mt-2">
+  <label className="text-sm font-semibold text-cyan-300">Fixed Usage Fee (USD):</label>
+  <input
+    type="number"
+    step="0.01"
+    min="0"
+    value={fixedUsageFee}
+    onChange={e => setFixedUsageFee(parseFloat(e.target.value) || 0)}
+    className="w-24 bg-transparent border-b border-white/10 py-1 px-2 focus:outline-none text-white"
+  />
+</div>
           </div>
           <button
             onClick={saveWorkflow}

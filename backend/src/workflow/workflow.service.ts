@@ -136,10 +136,10 @@ export class WorkflowService {
     }
 
     const created = await this.prisma.privateWorkflowInstance.create({
-      data: { ownerUserId: userId, graphJson: payloadGraph, usageUrl: data.usageUrl },
+      data: { ownerUserId: userId, graphJson: payloadGraph, usageUrl: data.usageUrl, workflowId: wf.id },
     });
 
-    return { success: true, deployed: false, workflow: wf.id, instance: created.id };
+    return { success: true, deployed: false, workflow: wf.id, instance: created.id, usageUrl: data.usageUrl };
   }
 
   async runDeployTests(userId: string, workflowId: string, graphJson: any, tests: Array<any>) {
@@ -226,7 +226,11 @@ export class WorkflowService {
     const data = registerResp.data;
     if (!data || !data.workflowUsageUrl) throw new InternalServerErrorException('Runner failed to register decentralized workflow');
 
-    await this.prisma.workflow.update({ where: { id: workflowId }, data: { workflowStatus: 'DEPLOYED' } });
+    await this.prisma.workflow.update({
+      where: { id: workflowId },
+      data: { workflowStatus: 'DEPLOYED', usageUrl: data.workflowUsageUrl },
+    });
+
     const created = await this.prisma.privateWorkflowInstance.create({
       data: {
         workflowId: workflowId,
@@ -236,7 +240,28 @@ export class WorkflowService {
       },
     });
 
-    return { success: true, workflow: workflowId, usageUrl: data.workflowUsageUrl, mapping, runnerReport: data };
+    await this.prisma.privateWorkflowInstance.deleteMany({
+      where: {
+        AND: [
+          { id: { not: created.id } },
+          {
+            OR: [
+              { workflowId: workflowId },
+              { usageUrl: data.workflowUsageUrl },
+            ]
+          }
+        ]
+      }
+    });
+
+    return {
+      success: true,
+      workflow: workflowId,
+      usageUrl: data.workflowUsageUrl,
+      mapping,
+      runnerReport: data,
+      createdInstanceId: created.id,
+    };
 
   } catch (err) {
     await Promise.all(selectedNodes.map(async n => {
