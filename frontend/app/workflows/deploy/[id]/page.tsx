@@ -453,7 +453,7 @@ export default function DeployWithTestsPage() {
         <div className="mt-6">
           <h3 className="font-semibold mb-2">Response details</h3>
           <div className="bg-[#071424] border border-white/6 rounded p-4">
-            <div className="text-sm text-gray-300">Usage URL: {response.usageUrl ?? response.workflowUsageUrl ?? '—'}</div>
+            <div className="text-sm text-gray-300">Usage URL: {response.usageUrl ?? response.workflowUsageUrl ?? '-'}</div>
             {response.mapping && (
               <div className="mt-2 text-sm text-gray-300">Mapping: <pre className="font-mono">{JSON.stringify(response.mapping, null, 2)}</pre></div>
             )}
@@ -461,7 +461,17 @@ export default function DeployWithTestsPage() {
               <div className="mt-2 text-sm text-gray-300">Runner report: <pre className="font-mono">{JSON.stringify(response.runnerReport, null, 2)}</pre></div>
             )}
           </div>
+          <br></br>
+              {response.runnerReport.success && response.runnerReport.workflowUsageUrl && (
+      <button
+        onClick={() => router.push(`/workflows/${instance.workflowId}`)}
+        className="px-4 py-2 bg-green-600 text-black rounded"
+      >
+        Go to workflow
+      </button>
+    )}
         </div>
+        
       )}
     </div>
   );

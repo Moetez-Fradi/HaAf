@@ -25,6 +25,7 @@ model User {
 model Tool {
   id                 String     @id @default(cuid())
   name               String
+  createdAt         DateTime                  @default(now())
   description        String?
   dockerImageUrl     String
   ownerWallet        String

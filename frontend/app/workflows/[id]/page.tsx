@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import axios from 'axios';
 import ReactFlow, {
   MiniMap,
@@ -21,6 +21,7 @@ interface Workflow {
   name: string;
   description?: string;
   ownerUserId: string;
+  usageUrl?: string | null; // <--- optional usage URL at workflow level
   graphJson: {
     nodes: Array<{ id: string; name: string; toolId?: string }>;
     edges: Array<{ from: string; to: string; condition?: string; mapping?: any }>;
@@ -65,6 +66,7 @@ function CustomNode({ id, data }: NodeProps) {
 
 export default function WorkflowDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const workflowId = (params as any).id as string;
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -207,7 +209,7 @@ export default function WorkflowDetailPage() {
 
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-2 gap-5 text-sm text-gray-300">
               <div><span className="font-semibold text-cyan-300">Owner:</span> {workflow.owner?.displayName ?? workflow.owner?.email ?? '—'}</div>
-            <div><span className="font-semibold text-cyan-300">Created:</span> {new Date(workflow.createdAt).toLocaleString()}</div>
+              <div><span className="font-semibold text-cyan-300">Created:</span> {new Date(workflow.createdAt).toLocaleString()}</div>
               <div><span className="font-semibold text-cyan-300">Fixed Fee:</span> {workflow.fixedUsageFee === 0 ? 'Free' : `$${workflow.fixedUsageFee}`}</div>
               <div><span className="font-semibold text-cyan-300">Estimated usage Fee:</span> {workflow.estimatedCost || "unknown"}</div>
               <div><span className="font-semibold text-cyan-300">Total Nodes:</span> {workflow.graphJson.nodes.length}</div>
@@ -216,64 +218,66 @@ export default function WorkflowDetailPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="px-6 py-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-black font-semibold shadow-md transition">
+            <button
+              onClick={() => router.push(`/workflows/${workflow.id}/try`)}
+              className="px-6 py-3 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-black font-semibold shadow-md transition"
+            >
               Try it
             </button>
           </div>
         </header>
 
         {/* --- Graph --- */}
-<div className="flex justify-center">
-  <div
-    className="bg-[#071424] rounded-2xl p-4 shadow-lg border border-white/5"
-    style={{
-      height: 500,           // Reduced height
-      width: '85%',          // Smaller width (keeps it centered)
-      maxWidth: 1000,        // Prevents it from being too wide on large screens
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}
-  >
-    <div className="w-full h-full">
-      <ReactFlowProvider>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          fitView
-          attributionPosition="bottom-left"
-          nodeTypes={{ custom: CustomNode }}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}   // disables selection
-          panOnDrag={false}            // disables panning
-          panOnScroll={false}          // disables scroll panning
-          zoomOnScroll={false}         // disables scroll zoom
-          zoomOnPinch={false}          // disables pinch zoom on touch
-          zoomOnDoubleClick={false}
-        >
-          <MiniMap
-            nodeStrokeWidth={1}
-            nodeColor={() => '#67F6FF'}
-            maskColor="rgba(10,11,20,0.7)"
+        <div className="flex justify-center">
+          <div
+            className="bg-[#071424] rounded-2xl p-4 shadow-lg border border-white/5"
             style={{
-              width: 70,
-              height: 70,
-              background: '#0a0f1a',
-              border: '1px solid rgba(255,255,255,0.05)',
-              borderRadius: '8px',
+              height: 500,
+              width: '85%',
+              maxWidth: 1000,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
             }}
-            pannable
-            zoomable
-          />
-          <Controls showInteractive />
-          <Background gap={16} size={1} color="rgba(255,255,255,0.03)" />
-        </ReactFlow>
-      </ReactFlowProvider>
-    </div>
-  </div>
-</div>
-
+          >
+            <div className="w-full h-full">
+              <ReactFlowProvider>
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  fitView
+                  attributionPosition="bottom-left"
+                  nodeTypes={{ custom: CustomNode }}
+                  nodesDraggable={false}
+                  nodesConnectable={false}
+                  elementsSelectable={false}
+                  panOnDrag={false}
+                  panOnScroll={false}
+                  zoomOnScroll={false}
+                  zoomOnPinch={false}
+                  zoomOnDoubleClick={false}
+                >
+                  <MiniMap
+                    nodeStrokeWidth={1}
+                    nodeColor={() => '#67F6FF'}
+                    maskColor="rgba(10,11,20,0.7)"
+                    style={{
+                      width: 70,
+                      height: 70,
+                      background: '#0a0f1a',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      borderRadius: '8px',
+                    }}
+                    pannable
+                    zoomable
+                  />
+                  <Controls showInteractive />
+                  <Background gap={16} size={1} color="rgba(255,255,255,0.03)" />
+                </ReactFlow>
+              </ReactFlowProvider>
+            </div>
+          </div>
+        </div>
 
         {/* --- Node Summary --- */}
         <section className="space-y-4">
