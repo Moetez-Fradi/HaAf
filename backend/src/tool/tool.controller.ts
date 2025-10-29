@@ -3,17 +3,17 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ToolService } from './tool.service';
 import { CreateToolDto } from './dto/tool.dto';
 
-@UseGuards(JwtAuthGuard)
 @Controller('tools')
 export class ToolController {
   constructor(private toolService: ToolService) {}
-
+  @UseGuards(JwtAuthGuard)
   @Post()
   async create(@Request() req, @Body() dto: CreateToolDto) {
     const user = req.user;
     return this.toolService.createTool(user.id, user.walletAccountId, dto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post(':id/test')
   async test(
     @Request() req,
@@ -23,6 +23,7 @@ export class ToolController {
     return this.toolService.testTool(req.user.id, req.user.walletAccountId, id, env);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post(':id/deploy')
   async deploy(
     @Request() req,
@@ -32,7 +33,8 @@ export class ToolController {
   ) {
     return this.toolService.runDeployTests(req.user.id, req.user.walletAccountId, id, env, tests || []);
   }
-
+  
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   @HttpCode(204)
   async remove(@Request() req, @Param('id') id: string) {

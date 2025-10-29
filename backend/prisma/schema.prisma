@@ -91,6 +91,7 @@ model Workflow {
   PrivateWorkflowInstance PrivateWorkflowInstance[]
   tasks                   Task[]
   owner                   User                      @relation("UserWorkflows", fields: [ownerUserId], references: [id])
+  @@unique([ownerUserId, name])
 }
 
 model PrivateWorkflowInstance {
