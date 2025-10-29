@@ -2,3 +2,4 @@ node_modules
 .vscode
 hedera hackathon.txt
 Tool_rows.json
+backend/pnpm-lock.yaml

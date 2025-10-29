@@ -2,7 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { toolsApi } from '../../lib/api';
 import Link from 'next/link';
 
 interface Tool {
@@ -17,7 +16,29 @@ interface Tool {
   outputShape: string;
 }
 
-// Star Rating Component
+const API_BASE = 'http://localhost:3001';
+
+const getAuthToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('access_token');
+  }
+  return null;
+};
+
+const toolsApi = {
+  getTools: async (page: number = 1) => {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE}/tools?page=${page}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch tools');
+    return response.json();
+  },
+};
+
 const StarRating = ({ rating = 0 }: { rating?: number }) => {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 >= 0.5;
@@ -75,57 +96,49 @@ export default function ToolsPage() {
   }, [searchQuery, selectedCategory, sortBy]);
 
   const loadTools = async () => {
-  setLoading(true);
-  try {
-    console.log('🔄 Loading tools...');
-    const data = await toolsApi.getTools(1);
-    console.log('📦 Raw API response:', data);
-    
-    let filteredTools = Array.isArray(data) ? data : data.tools || [];
-    console.log('🛠️ Extracted tools:', filteredTools);
-    
-    if (searchQuery) {
-      console.log('🔍 Applying search for:', searchQuery);
-      const query = searchQuery.toLowerCase();
-      filteredTools = filteredTools.filter((tool: Tool) => 
-        tool.name.toLowerCase().includes(query) ||
-        tool.description.toLowerCase().includes(query)
-      );
-      console.log('🔍 After search:', filteredTools);
-    }
-    
-    if (selectedCategory !== 'all') {
-      console.log('🎯 Applying category:', selectedCategory);
-      filteredTools = filteredTools.filter((tool: Tool) => {
-        const toolName = tool.name.toLowerCase();
-        const toolDesc = tool.description.toLowerCase();
-        const category = selectedCategory.toLowerCase();
-        
-        const categoryKeywords: { [key: string]: string[] } = {
-          'image processing': ['image', 'photo', 'picture', 'vision'],
-          'natural language': ['text', 'language', 'nlp', 'word', 'sentiment'],
-          'audio processing': ['audio', 'sound', 'music', 'voice'],
-        };
-        
-        const keywords = categoryKeywords[category] || [category];
-        return keywords.some(keyword => 
-          toolName.includes(keyword) || toolDesc.includes(keyword)
+    setLoading(true);
+    try {
+      const data = await toolsApi.getTools(1);
+      
+      let filteredTools = Array.isArray(data) ? data : data.tools || [];
+      
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filteredTools = filteredTools.filter((tool: Tool) => 
+          tool.name.toLowerCase().includes(query) ||
+          tool.description.toLowerCase().includes(query)
         );
-      });
-      console.log('🎯 After category filter:', filteredTools);
+      }
+      
+      if (selectedCategory !== 'all') {
+        filteredTools = filteredTools.filter((tool: Tool) => {
+          const toolName = tool.name.toLowerCase();
+          const toolDesc = tool.description.toLowerCase();
+          const category = selectedCategory.toLowerCase();
+          
+          const categoryKeywords: { [key: string]: string[] } = {
+            'image processing': ['image', 'photo', 'picture', 'vision'],
+            'natural language': ['text', 'language', 'nlp', 'word', 'sentiment'],
+            'audio processing': ['audio', 'sound', 'music', 'voice'],
+          };
+          
+          const keywords = categoryKeywords[category] || [category];
+          return keywords.some(keyword => 
+            toolName.includes(keyword) || toolDesc.includes(keyword)
+          );
+        });
+      }
+      
+      filteredTools = sortTools(filteredTools, sortBy);
+      setTools(filteredTools);
+      
+    } catch (error) {
+      console.error('Failed to load tools:', error);
+      setTools([]);
+    } finally {
+      setLoading(false);
     }
-    
-    filteredTools = sortTools(filteredTools, sortBy);
-    console.log('✅ Final tools:', filteredTools);
-    setTools(filteredTools);
-    
-  } catch (error) {
-    console.error('❌ Failed to load tools:', error);
-    setTools([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const sortTools = (tools: Tool[], sortType: string) => {
     const sortedTools = [...tools];
@@ -157,20 +170,16 @@ export default function ToolsPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0b14] relative overflow-hidden">
-      {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
       </div>
 
-      {/* Main Content - Split Layout */}
       <div className="relative z-20 px-8 py-8 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* Left Side - Hero Section */}
           <div className="lg:col-span-4">
             <div className="sticky top-8">
-              {/* Hero Content */}
               <div className="mb-8">
                 <h1 className="text-5xl font-bold text-white mb-4 leading-tight">
                   Explore <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">AI Tools</span>
@@ -179,19 +188,16 @@ export default function ToolsPage() {
                   Discover and integrate powerful decentralized AI agents to enhance your workflow
                 </p>
                 
-                {/* CTA Buttons */}
                 <div className="flex flex-col gap-4 mb-12">
                   <Link
-                    href="/builder"
+                    href="createtool"
                     className="px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold hover:from-cyan-400 hover:to-blue-400 transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 text-center"
                   >
                     Become A Builder
                   </Link>
-                 
                 </div>
               </div>
 
-              {/* Categories Section */}
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
                 <h3 className="text-white font-bold text-lg mb-6 flex items-center gap-2">
                   <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
@@ -230,7 +236,6 @@ export default function ToolsPage() {
                   ))}
                 </div>
 
-                {/* Stats */}
                 <div className="mt-8 pt-6 border-t border-white/10">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center">
@@ -247,9 +252,7 @@ export default function ToolsPage() {
             </div>
           </div>
 
-          {/* Right Side - Tools Grid */}
           <div className="lg:col-span-8">
-            {/* Search Bar */}
             <div className="mb-8">
               <div className="relative">
                 <input
@@ -278,14 +281,12 @@ export default function ToolsPage() {
               </div>
             </div>
 
-            {/* Tools Grid Header */}
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white">
                 {selectedCategory === 'all' ? 'All Tools' : selectedCategory}
                 <span className="text-cyan-400 ml-2">({tools.length})</span>
               </h2>
               
-              {/* Custom Styled Dropdown */}
               <div className="relative">
                 <select 
                   value={sortBy}
@@ -306,7 +307,6 @@ export default function ToolsPage() {
               </div>
             </div>
 
-            {/* Tools Grid */}
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[1, 2, 3, 4].map(i => (
@@ -323,34 +323,36 @@ export default function ToolsPage() {
               </div>
             ) : tools.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {tools.map(tool => (
-                  <div key={tool.id} className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6 hover:border-cyan-400/30 hover:shadow-lg hover:shadow-cyan-500/10 transition-all group">
-                    {/* Tool Header with Rating */}
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-xl font-bold text-white group-hover:text-cyan-300 transition-colors mb-2">
-                          {tool.name}
-                        </h3>
-                        <StarRating rating={tool.rating || 0} />
-                      </div>
-                      <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-sm font-semibold">
-                        {tool.usagePrice === 0 ? 'Free' : `$${tool.usagePrice}`}
-                      </span>
-                    </div>
+  {tools.map(tool => (
+    <div key={tool.id} className="rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 p-6 hover:border-cyan-400/30 hover:shadow-lg hover:shadow-cyan-500/10 transition-all group flex flex-col h-full">
+      {/* Tool Header with Rating */}
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-xl font-bold text-white group-hover:text-cyan-300 transition-colors mb-2 truncate">
+            {tool.name}
+          </h3>
+          <StarRating rating={tool.rating || 0} />
+        </div>
+        <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-sm font-semibold whitespace-nowrap ml-4">
+          {tool.usagePrice === 0 ? 'Free' : `$${tool.usagePrice}`}
+        </span>
+      </div>
 
-                    {/* Description */}
-                    <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                      {tool.description}
-                    </p>
+      {/* Description */}
+      <p className="text-gray-400 text-sm mb-6 leading  -relaxed flex-grow line-clamp-3">
+        {tool.description}
+      </p>
 
-                 
-                    {/* View Details Button */}
-                    <button className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 text-cyan-400 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all border border-cyan-400/20 hover:border-cyan-400/30 font-medium">
-                      View Details & Integrate
-                    </button>
-                  </div>
-                ))}
-              </div>
+      {/* View Details Button */}
+     <Link 
+  href={`/tools/${tool.id}`}
+  className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 text-cyan-400 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all border border-cyan-400/20 hover:border-cyan-400/30 font-medium mt-auto block text-center"
+>
+  View Details 
+</Link>
+    </div>
+  ))}
+</div>
             ) : (
               <div className="text-center py-16">
                 <div className="w-24 h-24 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6">
