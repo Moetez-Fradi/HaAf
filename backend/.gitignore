@@ -63,3 +63,4 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 prisma/dev.db
 prisma/migrations/
 *.db-journal
+backend/pnpm-lock.yaml

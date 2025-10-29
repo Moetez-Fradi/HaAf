@@ -96,23 +96,7 @@ export default function WalletPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0b14] relative overflow-hidden flex flex-col">
-      {/* Top Navigation Bar */}
-      <div className="relative z-20 flex items-center justify-between px-8 py-4">
-        <div className="flex items-center gap-2">
-          <svg width="24" height="24" viewBox="0 0 24 24" className="text-cyan-400" fill="none">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" opacity="0.6"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2"/>
-          </svg>
-          <span className="text-white text-xl font-bold">AgentHive</span>
-        </div>
-        <div className="flex items-center gap-6 text-sm">
-          <a href="#" className="text-gray-300 hover:text-white">Marketplace</a>
-          <a href="#" className="text-gray-300 hover:text-white">Builder</a>
-          <a href="#" className="text-gray-300 hover:text-white">Dashboard</a>
-        </div>
-      </div>
-
+        
       {/* Decorative wave */}
       <div
         aria-hidden
