@@ -462,7 +462,7 @@ export default function DeployWithTestsPage() {
             )}
           </div>
           <br></br>
-              {response.runnerReport.success && response.runnerReport.workflowUsageUrl && (
+              {response?.runnerReport?.success && response.runnerReport.workflowUsageUrl && (
       <button
         onClick={() => router.push(`/workflows/${instance.workflowId}`)}
         className="px-4 py-2 bg-green-600 text-black rounded"

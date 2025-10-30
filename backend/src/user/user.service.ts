@@ -39,11 +39,7 @@ export class UserService {
     });
   }
 
-  // --------------------------
-  // NEW: fetch tools owned by the user (with rating and reviewsCount)
-  // --------------------------
   async findToolsByOwner(userId: string) {
-    // 1) get user's walletAccountId
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { walletAccountId: true },
@@ -52,11 +48,9 @@ export class UserService {
 
     const wallet = user.walletAccountId;
     if (!wallet) {
-      // no wallet -> no tools by ownerWallet
       return [];
     }
 
-    // 2) fetch tools owned by that wallet
     const tools = await this.prisma.tool.findMany({
       where: { ownerWallet: wallet },
       select: {
@@ -75,8 +69,6 @@ export class UserService {
 
     const toolIds = tools.map(t => t.id);
 
-    // 3) aggregate reviews by toolId to compute avg rating and count in one query
-    // groupBy returns an array of { toolId, _avg: { stars }, _count: { _all } }
     const ratings = await this.prisma.review.groupBy({
       by: ['toolId'],
       where: { toolId: { in: toolIds } },
@@ -89,7 +81,6 @@ export class UserService {
       ratingMap.set(r.toolId, { avg: r._avg?.stars ?? null, count: r._count?._all ?? 0 });
     }
 
-    // 4) map tools -> DTO shape expected by frontend
     const result = tools.map(t => {
       const info = ratingMap.get(t.id) ?? { avg: null, count: 0 };
       if (!info.avg) {
@@ -119,11 +110,8 @@ export class UserService {
 
     return { userId, nodeCount: count };
   }
-  // --------------------------
-  // NEW: fetch workflows owned by the user
-  // --------------------------
+
   async findWorkflowsByOwner(userId: string) {
-    // find workflows where ownerUserId === userId
     const wfs = await this.prisma.workflow.findMany({
       where: { ownerUserId: userId, workflowStatus: { not: 'TESTING' } },
       select: {
@@ -139,7 +127,6 @@ export class UserService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Map to simple DTO
     return wfs.map(w => ({
       id: w.id,
       name: w.name,

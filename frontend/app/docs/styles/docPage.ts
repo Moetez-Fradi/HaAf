@@ -1,0 +1,30 @@
+export const docPageClasses = `
+  prose prose-invert max-w-none
+  prose-headings:text-gray-100
+  prose-p:text-gray-300
+  prose-a:text-blue-400
+  prose-strong:text-gray-100
+  prose-ul:text-gray-300
+  prose-ol:text-gray-300
+  prose-li:text-gray-300
+  prose-pre:bg-gray-800/50
+  prose-pre:border
+  prose-pre:border-gray-700
+  prose-pre:rounded-lg
+  prose-code:text-blue-300
+  prose-code:bg-gray-800
+  prose-code:px-1
+  prose-code:py-0.5
+  prose-code:rounded-md
+  prose-blockquote:border-l-4
+  prose-blockquote:border-gray-700
+  prose-blockquote:bg-gray-800/30
+  [&_.feature-card]:border-gray-700
+  [&_.feature-card]:bg-gray-800/50
+  [&_.info-box]:bg-blue-900/20
+  [&_.info-box]:border-blue-800
+  [&_.warning-box]:bg-yellow-900/20
+  [&_.warning-box]:border-yellow-800
+  [&_.success-box]:bg-green-900/20
+  [&_.success-box]:border-green-800
+`;
