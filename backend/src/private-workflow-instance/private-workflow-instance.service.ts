@@ -15,6 +15,10 @@ export class PrivateWorkflowInstanceService {
       data: { ownerUserId: userId, graphJson: graphJson ?? wf.graphJson },
     });
 
+    // here goes the encryption logic, it's still not impelemented but the env vars shouldnt be stored in the db
+    // const encryptedGraph = encryptJson(graphJson ?? wf.graphJson);
+
+
     const runnerUrl = process.env.WORKFLOW_RUNNER_URL || 'http://localhost:3111/run-workflow';
     try {
       const resp = await lastValueFrom(this.httpService.post(runnerUrl, {

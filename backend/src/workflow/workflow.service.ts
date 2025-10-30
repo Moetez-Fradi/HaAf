@@ -8,7 +8,7 @@ import { HederaService } from '../hedera/hedera.service';
 
 @Injectable()
 export class WorkflowService {
-  constructor(private prisma: PrismaService, private httpService: HttpService) {}
+  constructor(private prisma: PrismaService, private httpService: HttpService, private hederaService: HederaService) {}
 
   private async enrichGraphWithTools(graphJson: any) {
     if (!graphJson?.nodes?.length) throw new BadRequestException('Invalid graph');
@@ -28,13 +28,15 @@ export class WorkflowService {
       );
     }
 
-    const nodes = graphJson.nodes.map((n: any) => {
-      const tool = toolById.get(n.toolId);
-      return {
-        ...n,
-        dockerImageUrl: tool?.dockerImageUrl,
-      };
-    });
+const nodes = graphJson.nodes.map((n: any) => {
+  const tool = toolById.get(n.toolId);
+  return {
+    ...n,
+    dockerImageUrl: tool?.dockerImageUrl,
+    usagePrice: tool?.usagePrice ?? 0,          // add usagePrice
+    ownerAccountId: tool?.ownerWallet ?? '', // add wallet/account
+  };
+});
 
     return { nodes, edges: graphJson.edges ?? [] };
   }
@@ -58,7 +60,43 @@ export class WorkflowService {
     const created = await this.prisma.privateWorkflowInstance.create({
       data: { ownerUserId: userId, graphJson: enriched, usageUrl: data.workflowUsageUrl },
     });
-    return { success: true, workflow: workflowId, usageUrl: data.workflowUsageUrl, testReport: data };
+
+    //     await this.prisma.privateWorkflowInstance.deleteMany({
+    //   where: {
+    //     AND: [
+    //       { id: { not: created.id } },
+    //       {
+    //         OR: [
+    //           { workflowId: workflowId },
+    //           { usageUrl: data.workflowUsageUrl },
+    //         ]
+    //       }
+    //     ]
+    //   }
+    // });
+
+  const payer = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { walletAccountId: true },
+  });
+
+  console.log("PAYER", payer);
+  console.log("ENRICHED", enriched);
+
+    const receipt = (enriched.nodes)
+    .map((node: any) => ({
+      receiver: node.ownerAccountId,
+      toolName: node.name,
+      amount: node.usagePrice,
+    }));
+
+    console.log(receipt)
+
+  if (!payer?.walletAccountId) {
+    throw new InternalServerErrorException('Payer wallet not found');
+  }
+
+    return { success: true, instanceId: created.id, usageUrl: data.workflowUsageUrl, testReport: data, receipt, };
   }
 
   async createWorkflow(userId: string, wallet: string, graphJson: any, name?: string, fixedUsageFee?: number, description?: string) {
@@ -136,10 +174,10 @@ export class WorkflowService {
     }
 
     const created = await this.prisma.privateWorkflowInstance.create({
-      data: { ownerUserId: userId, graphJson: payloadGraph, usageUrl: data.usageUrl },
+      data: { ownerUserId: userId, graphJson: payloadGraph, usageUrl: data.usageUrl, workflowId: wf.id },
     });
 
-    return { success: true, deployed: false, workflow: wf.id, instance: created.id };
+    return { success: true, deployed: false, workflow: wf.id, instance: created.id, usageUrl: data.usageUrl };
   }
 
   async runDeployTests(userId: string, workflowId: string, graphJson: any, tests: Array<any>) {
@@ -226,7 +264,11 @@ export class WorkflowService {
     const data = registerResp.data;
     if (!data || !data.workflowUsageUrl) throw new InternalServerErrorException('Runner failed to register decentralized workflow');
 
-    await this.prisma.workflow.update({ where: { id: workflowId }, data: { workflowStatus: 'DEPLOYED' } });
+    await this.prisma.workflow.update({
+      where: { id: workflowId },
+      data: { workflowStatus: 'DEPLOYED', usageUrl: data.workflowUsageUrl },
+    });
+
     const created = await this.prisma.privateWorkflowInstance.create({
       data: {
         workflowId: workflowId,
@@ -236,7 +278,46 @@ export class WorkflowService {
       },
     });
 
-    return { success: true, workflow: workflowId, usageUrl: data.workflowUsageUrl, mapping, runnerReport: data };
+    await this.prisma.privateWorkflowInstance.deleteMany({
+      where: {
+        AND: [
+          { id: { not: created.id } },
+          {
+            OR: [
+              { workflowId: workflowId },
+              { usageUrl: data.workflowUsageUrl },
+            ]
+          }
+        ]
+      }
+    });
+
+  const payer = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { walletAccountId: true },
+  });
+
+    const receipt = (enriched.nodes || [])
+    .filter((node: any) => node.usagePrice && node.ownerWallet)
+    .map((node: any) => ({
+      receiver: node.ownerAccountId,
+      toolName: node.name,
+      amount: node.usagePrice,
+    }));
+
+  if (!payer?.walletAccountId) {
+    throw new InternalServerErrorException('Payer wallet not found');
+  }
+
+    return {
+      success: true,
+      workflow: workflowId,
+      usageUrl: data.workflowUsageUrl,
+      mapping,
+      runnerReport: data,
+      createdInstanceId: created.id,
+      receipt,
+    };
 
   } catch (err) {
     await Promise.all(selectedNodes.map(async n => {

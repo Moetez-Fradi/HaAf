@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Workflow {
   id: string;
@@ -17,6 +18,7 @@ interface Workflow {
 }
 
 export default function WorkflowsPage() {
+    const router = useRouter();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
@@ -118,6 +120,12 @@ export default function WorkflowsPage() {
           <option value="fee-low">Fee: Low to High</option>
           <option value="fee-high">Fee: High to Low</option>
         </select>
+    <button
+      onClick={() => router.push('/workflows/build')}
+      className="rounded-xl bg-[#1a1b26] bg-cyan-500 border border-white/20 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 transition-all"
+    >
+      Create your own!
+    </button>
       </div>
 
       {/* Workflows Grid */}

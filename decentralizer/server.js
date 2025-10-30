@@ -4,11 +4,13 @@ import { decryptEnv } from "./utils/decrypt.js";
 import { pullImage, waitForUrl } from "./utils/docker.js";
 import Docker from "dockerode";
 import axios from "axios";
+import cors from "cors";
 
 const docker = new Docker();
 dotenv.config();
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 app.post("/run", async (req, res) => {
   try {
@@ -263,7 +265,7 @@ app.post("/run-workflow", async (req, res) => {
       }
       workflowStore.delete(instanceId);
       console.log(`Workflow ${instanceId} stopped after 10min`);
-    }, 10 * 60 * 1000);
+    }, 25 * 60 * 1000);
 
     workflowStore.set(instanceId, { graphJson, containers });
     res.json({

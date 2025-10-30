@@ -207,7 +207,16 @@ useEffect(() => {
 
     setIsSubmittingReview(true);
     try {
-      const token = getAuthToken();
+    const tokenString = localStorage.getItem('access_token');
+    let token = '';
+    if (tokenString) {
+      try {
+        const parsed = JSON.parse(tokenString);
+        token = parsed.state?.token ?? '';
+      } catch (e) {
+        console.error('Failed to parse access_token from localStorage', e);
+      }
+    }
       const reviewData = {
         toolId: toolId,
         stars: newReviewStars,
@@ -443,6 +452,35 @@ useEffect(() => {
                 </div>
               )}
 
+                            <div className="space-y-4">
+                <h4 className="text-white font-bold text-lg mb-4">User Reviews</h4>
+                {reviews.length > 0 ? (
+                  reviews.map((review) => (
+                    <div key={review.id} className="bg-white/5 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center">
+                            <span className="text-cyan-400 text-sm font-semibold">
+                              {review.user.displayName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-white font-medium">{review.user.displayName}</span>
+                        </div>
+                        <StarRating rating={review.stars} size="sm" />
+                      </div>
+                      {review.comment && (
+                        <p className="text-gray-300 text-sm leading-relaxed">{review.comment}</p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">No reviews yet. Be the first to review this tool!</p>
+                  </div>
+                )}
+              </div>
+              <br></br>
+
               {/* Add Review Form */}
               <div className="bg-white/5 rounded-xl p-6 mb-6">
                 <h4 className="text-white font-bold text-lg mb-4">Write a Review</h4>
@@ -483,34 +521,6 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Reviews List */}
-              <div className="space-y-4">
-                <h4 className="text-white font-bold text-lg mb-4">User Reviews</h4>
-                {reviews.length > 0 ? (
-                  reviews.map((review) => (
-                    <div key={review.id} className="bg-white/5 rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center">
-                            <span className="text-cyan-400 text-sm font-semibold">
-                              {review.user.displayName.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                          <span className="text-white font-medium">{review.user.displayName}</span>
-                        </div>
-                        <StarRating rating={review.stars} size="sm" />
-                      </div>
-                      {review.comment && (
-                        <p className="text-gray-300 text-sm leading-relaxed">{review.comment}</p>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-400">No reviews yet. Be the first to review this tool!</p>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 

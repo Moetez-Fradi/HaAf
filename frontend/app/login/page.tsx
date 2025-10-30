@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '../../store/useUserStore';
+import PublicRouteGuard from '../../components/PublicRouteGuard';
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ||
@@ -86,6 +87,7 @@ export default function LoginPage() {
 
 
   return (
+    <PublicRouteGuard blockIfLoggedIn>
     <div className="min-h-screen bg-[#0a0b14] relative overflow-hidden flex flex-col">
           {/* Decorative wave */}
       <div
@@ -209,6 +211,7 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+    </PublicRouteGuard>
   );
 }
 

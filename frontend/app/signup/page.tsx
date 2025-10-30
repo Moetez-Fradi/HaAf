@@ -3,6 +3,7 @@
 
   import React, { useState } from 'react';
   import { useRouter } from 'next/navigation';
+  import PublicRouteGuard from '../../components/PublicRouteGuard';
 
 
   const API_BASE = (
@@ -76,6 +77,8 @@
 
 
     return (
+          <PublicRouteGuard blockIfLoggedIn>
+      
       <div className="min-h-screen bg-[#0a0b14] relative overflow-hidden flex flex-col">
         {/* Top Navigation Bar */}
         {/* Decorative wave */}
@@ -189,6 +192,7 @@
         </p>
       </div>
       </div>
+      </PublicRouteGuard>
     );
   }
 

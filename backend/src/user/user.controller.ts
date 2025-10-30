@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, NotFoundException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -8,11 +8,29 @@ import { Request } from '@nestjs/common';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get(':email')
-  async getByEmail(@Param('email') email: string) {
-    return this.userService.findByEmailNoPassword(email);
+  @Get(':id')
+  async getByEmail(@Param('id') id: string) {
+    const u = await this.userService.findByIdNoPassword(id);
+    if (!u) throw new NotFoundException('User not found');
+    return { user: u };
   }
 
+  @Get(':id/nodes')
+  async getUserNodeCount(@Param('id') id: string) {
+    return this.userService.getUserNodeCount(id);
+  }
+
+  @Get(':id/tools')
+  async getToolsByUser(@Param('id') id: string) {
+    const tools = await this.userService.findToolsByOwner(id);
+    return { tools };
+  }
+
+  @Get(':id/workflows')
+  async getWorkflowsByUser(@Param('id') id: string) {
+    const wfs = await this.userService.findWorkflowsByOwner(id);
+    return { workflows: wfs };
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post('link-wallet')

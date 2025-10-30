@@ -15,7 +15,6 @@ model User {
   displayName       String?
   walletAccountId   String?                   @unique
   nodes             Node[]                    @relation("UserNodes")
-  payments          Payment[]                 @relation("UserPayments")
   workflowInstances PrivateWorkflowInstance[] @relation("UserPrivateWorkflowInstances")
   reviews           Review[]                  @relation("UserReviews")
   tools             Tool[]                    @relation("UserTools")
@@ -25,6 +24,7 @@ model User {
 model Tool {
   id                 String     @id @default(cuid())
   name               String
+  createdAt         DateTime                  @default(now())
   description        String?
   dockerImageUrl     String
   ownerWallet        String
@@ -87,10 +87,12 @@ model Workflow {
   estimatedCost           Float?
   energyEstimate          Float?
   createdAt               DateTime                  @default(now())
+  usageUrl                String?
   workflowStatus          ToolStatus                @default(TESTING)
   PrivateWorkflowInstance PrivateWorkflowInstance[]
   tasks                   Task[]
   owner                   User                      @relation("UserWorkflows", fields: [ownerUserId], references: [id])
+  @@unique([ownerUserId, name])
 }
 
 model PrivateWorkflowInstance {
@@ -114,25 +116,22 @@ model Task {
   txHash     String?
   energyUsed Float?
   runtimeMs  Int?
-  payment    Payment?
   node       Node?      @relation(fields: [nodeId], references: [id])
   tool       Tool       @relation(fields: [toolId], references: [id])
   workflow   Workflow   @relation(fields: [workflowId], references: [id])
 }
 
 model Payment {
-  id       String        @id @default(cuid())
-  taskId   String?       @unique
-  payer    String
-  amount   Float
-  status   PaymentStatus @default(PENDING)
-  txHash   String?
-  receiver String?
-  type     PaymentType   @default(EXECUTION)
-  user     User          @relation("UserPayments", fields: [payer], references: [walletAccountId])
-  task     Task?         @relation(fields: [taskId], references: [id])
+  id         String   @id @default(cuid())
+  instanceId String   @unique                     // e.g. workflow instance id
+  payer      String                                   // payer walletAccountId
+  receipt    Json                                     // array of { receiver, toolName, amount }
+  total      Float
+  paid       Boolean  @default(false)
+  txHash     String?
+  memo       String?
+  createdAt  DateTime @default(now())
 }
-
 model Review {
   id      String  @id @default(cuid())
   toolId  String
