@@ -150,7 +150,9 @@ export default function QuickStartPage() {
         <li>
           <strong className="text-white">Test the tool</strong>
           <p className="ml-4 text-gray-400">
-            Use the testing interface to verify your tool's functionality.
+            Use the testing interface to verify your tool's functionality. Alsot when you test, the server
+            calculates the power consumption of the excution of your tool, to make sure the nodes that will
+            run it later get a fair payment.
           </p>
         </li>
       </ol>

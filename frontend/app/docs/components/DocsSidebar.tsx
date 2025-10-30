@@ -29,6 +29,15 @@ const navigation = [
       { title: 'Wallet Integration', href: '/docs/wallet-integration' },
     ],
   },
+    {
+    title: 'Security',
+    links: [
+    //   { title: 'User Management', href: '' },
+    //   { title: 'Tool Management', href: '' },
+    //   { title: 'Workflow Creation', href: '' },
+      { title: 'How we secure our platform', href: '/docs/security' },
+    ],
+  },
 ]
 
 export default function DocsSidebar() {

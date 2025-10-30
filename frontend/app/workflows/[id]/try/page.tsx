@@ -229,7 +229,7 @@ export default function WorkflowTryPage() {
             Back to workflows
           </button>
           <button
-            onClick={() => router.push(`/workflows/deploy/${workflow.id}`)}
+            onClick={() => router.push(`/users/cmgu3nb5o0000uv3sfdkv3baq`)}
             className="px-3 py-2 bg-green-600 text-black rounded text-sm"
           >
             builder's account
