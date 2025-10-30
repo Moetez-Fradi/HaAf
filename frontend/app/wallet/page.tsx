@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import connectToWallet from "../../helpers/hashconnect";
+import { useRouter } from "next/navigation";
 import PublicRouteGuard from "../../components/PublicRouteGuard";
 
 const API_BASE = (
@@ -13,6 +14,8 @@ export default function WalletPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [walletAccountId, setWalletAccountId] = useState<string>("");
+  const router = useRouter();
+
 
   const handleConnect = async () => {
     try {
@@ -83,7 +86,8 @@ export default function WalletPage() {
 
       const data = await response.json();
       console.log("Wallet saved to database:", data);
-      
+      router.push('/tools');
+
     } catch (error) {
       console.error("Error saving wallet to database:", error);
       alert("Wallet connected but failed to save to database. Please try again.");

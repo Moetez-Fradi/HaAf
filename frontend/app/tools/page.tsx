@@ -20,24 +20,46 @@ const API_BASE = 'http://localhost:3001';
 
 const getAuthToken = () => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('access_token');
+    const stored = localStorage.getItem('access_token');
+    if (!stored) return null;
+
+    try {
+      const parsed = JSON.parse(stored);
+      return parsed?.state?.token || null;
+    } catch (e) {
+      console.error('Failed to parse access_token:', e);
+      return null;
+    }
   }
   return null;
 };
 
+
 const toolsApi = {
   getTools: async (page: number = 1) => {
-    const token = getAuthToken();
-    const response = await fetch(`${API_BASE}/tools?page=${page}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    if (!response.ok) throw new Error('Failed to fetch tools');
-    return response.json();
+const token = getAuthToken();
+
+const response = await fetch(`${API_BASE}/tools?page=${page}`, {
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  },
+});
+
+    console.log('[getTools] Response status:', response.status);
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('[getTools] Failed response body:', text);
+      throw new Error('Failed to fetch tools');
+    }
+
+    const data = await response.json();
+    console.log('[getTools] Response data:', data);
+    return data;
   },
 };
+
 
 const StarRating = ({ rating = 0 }: { rating?: number }) => {
   const fullStars = Math.floor(rating);
@@ -95,50 +117,53 @@ export default function ToolsPage() {
     loadTools();
   }, [searchQuery, selectedCategory, sortBy]);
 
-  const loadTools = async () => {
-    setLoading(true);
-    try {
-      const data = await toolsApi.getTools(1);
-      
-      let filteredTools = Array.isArray(data) ? data : data.tools || [];
-      
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredTools = filteredTools.filter((tool: Tool) => 
-          tool.name.toLowerCase().includes(query) ||
-          tool.description.toLowerCase().includes(query)
-        );
-      }
-      
-      if (selectedCategory !== 'all') {
-        filteredTools = filteredTools.filter((tool: Tool) => {
-          const toolName = tool.name.toLowerCase();
-          const toolDesc = tool.description.toLowerCase();
-          const category = selectedCategory.toLowerCase();
-          
-          const categoryKeywords: { [key: string]: string[] } = {
-            'image processing': ['image', 'photo', 'picture', 'vision'],
-            'natural language': ['text', 'language', 'nlp', 'word', 'sentiment'],
-            'audio processing': ['audio', 'sound', 'music', 'voice'],
-          };
-          
-          const keywords = categoryKeywords[category] || [category];
-          return keywords.some(keyword => 
-            toolName.includes(keyword) || toolDesc.includes(keyword)
-          );
-        });
-      }
-      
-      filteredTools = sortTools(filteredTools, sortBy);
-      setTools(filteredTools);
-      
-    } catch (error) {
-      console.error('Failed to load tools:', error);
-      setTools([]);
-    } finally {
-      setLoading(false);
+const loadTools = async () => {
+  console.log('[loadTools] called');
+  setLoading(true);
+  try {
+    const data = await toolsApi.getTools(1);
+    console.log('[loadTools] Raw data received:', data);
+
+    let filteredTools = Array.isArray(data) ? data : data.tools || [];
+    console.log('[loadTools] Filtered tools count:', filteredTools.length);
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filteredTools = filteredTools.filter((tool: Tool) =>
+        tool.name.toLowerCase().includes(query) ||
+        tool.description.toLowerCase().includes(query)
+      );
     }
-  };
+
+    if (selectedCategory !== 'all') {
+      filteredTools = filteredTools.filter((tool: Tool) => {
+        const toolName = tool.name.toLowerCase();
+        const toolDesc = tool.description.toLowerCase();
+        const category = selectedCategory.toLowerCase();
+
+        const categoryKeywords: { [key: string]: string[] } = {
+          'image processing': ['image', 'photo', 'picture', 'vision'],
+          'natural language': ['text', 'language', 'nlp', 'word', 'sentiment'],
+          'audio processing': ['audio', 'sound', 'music', 'voice'],
+        };
+
+        const keywords = categoryKeywords[category] || [category];
+        return keywords.some(keyword =>
+          toolName.includes(keyword) || toolDesc.includes(keyword)
+        );
+      });
+    }
+
+    filteredTools = sortTools(filteredTools, sortBy);
+    setTools(filteredTools);
+  } catch (error) {
+    console.error('[loadTools] Error fetching tools:', error);
+    setTools([]);
+  } finally {
+    setLoading(false);  
+  }
+};
+
 
   const sortTools = (tools: Tool[], sortType: string) => {
     const sortedTools = [...tools];
@@ -190,7 +215,7 @@ export default function ToolsPage() {
                 
                 <div className="flex flex-col gap-4 mb-12">
                   <Link
-                    href="createtool"
+                    href="tools/createtool"
                     className="px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold hover:from-cyan-400 hover:to-blue-400 transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 text-center"
                   >
                     Become A Builder

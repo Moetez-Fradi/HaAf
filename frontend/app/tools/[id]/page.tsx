@@ -42,7 +42,15 @@ const API_BASE = 'http://localhost:3001';
 
 const getAuthToken = () => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('access_token');
+    const raw = localStorage.getItem('access_token');
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed.state?.token ?? null; 
+    } catch (err) {
+      console.error('Failed to parse token from localStorage', err);
+      return null;
+    }
   }
   return null;
 };
@@ -118,66 +126,80 @@ export default function ToolDetailsPage() {
   const [newReviewStars, setNewReviewStars] = useState<number>(0);
   const [newReviewComment, setNewReviewComment] = useState<string>('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+useEffect(() => {
+  if (!toolId) {
+    router.push('/tools');
+    return;
+  }
+  const token = getAuthToken();
+  if (!token) {
+    router.push('/login');
+    return;
+  }
+  loadToolDetails();
+}, [toolId]);
+
 
   const loadToolDetails = async () => {
-    setLoading(true);
-    try {
-      const token = getAuthToken();
-      
-      // Load tool details
-      const toolResponse = await fetch(`${API_BASE}/tools/${toolId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!toolResponse.ok) throw new Error('Failed to fetch tool details');
-      const toolData = await toolResponse.json();
-      setTool(toolData);
+  setLoading(true);
+  try {
+    const token = getAuthToken();
 
-      // Load reviews
-      const reviewsResponse = await fetch(`${API_BASE}/reviews/tool/${toolId}/comments`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (reviewsResponse.ok) {
-        const reviewsData = await reviewsResponse.json();
-        setReviews(reviewsData);
-      }
-
-      // Load review stats
-      const statsResponse = await fetch(`${API_BASE}/reviews/tool/${toolId}/stats`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setReviewStats(statsData);
-      }
-
-    } catch (error) {
-      console.error('Failed to load tool details:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!toolId) {
-      router.push('/tools');
+    if (!token) {
+      console.warn('[loadToolDetails] No token found, redirecting to login');
+      router.push('/login'); // or wherever your auth page is
       return;
     }
-    loadToolDetails();
-  }, [toolId, router]);
 
-  const submitReview = async () => {
+    // Load tool details
+    const toolResponse = await fetch(`${API_BASE}/tools/${toolId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!toolResponse.ok) {
+      throw new Error(`Failed to fetch tool details: ${toolResponse.status}`);
+    }
+
+    const toolData = await toolResponse.json();
+    setTool(toolData);
+
+    // Load reviews
+    const reviewsResponse = await fetch(`${API_BASE}/reviews/tool/${toolId}/comments`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (reviewsResponse.ok) {
+      const reviewsData = await reviewsResponse.json();
+      setReviews(reviewsData);
+    }
+
+    // Load stats
+    const statsResponse = await fetch(`${API_BASE}/reviews/tool/${toolId}/stats`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (statsResponse.ok) {
+      const statsData = await statsResponse.json();
+      setReviewStats(statsData);
+    }
+  } catch (error) {
+    console.error('[loadToolDetails] Error:', error);
+    setTool(null);
+  } finally {
+    setLoading(false);
+  }
+};
+
+    const submitReview = async () => {
     if (!newReviewStars) {
       alert('Please select a rating');
       return;
@@ -412,7 +434,7 @@ export default function ToolDetailsPage() {
 
             {/* Reviews Section - Below tabs */}
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
-              <h3 className="text-white font-bold text-2xl mb-6">Reviews & Ratings</h3>
+              <h3 className="text-white  font-bold text-2xl mb-6">Reviews & Ratings</h3>
               
               {/* Review Stats */}
               {reviewStats && (

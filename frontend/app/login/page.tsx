@@ -76,7 +76,7 @@ export default function LoginPage() {
         setUser(data.access_token, data.email, data.userId);
       }
      
-      router.replace('/home');
+      router.replace('/tools');
      
     } catch (err: any) {
       setError(err?.message ?? 'An unexpected error occurred');
