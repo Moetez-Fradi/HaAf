@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import connectToWallet from "../../helpers/hashconnect";
+import PublicRouteGuard from "../../components/PublicRouteGuard";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ||
@@ -95,6 +96,7 @@ export default function WalletPage() {
   };
 
   return (
+    <PublicRouteGuard blockIfWalletConnected>
     <div className="min-h-screen bg-[#0a0b14] relative overflow-hidden flex flex-col">
         
       {/* Decorative wave */}
@@ -202,5 +204,6 @@ export default function WalletPage() {
         </p>
       </div>
     </div>
+    </PublicRouteGuard>
   );
 }

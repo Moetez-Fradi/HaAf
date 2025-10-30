@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUserStore } from '../store/useUserStore';
 import { useWalletStore } from '../store/useWalletSore';
@@ -19,19 +19,27 @@ export default function PublicRouteGuard({
   const router = useRouter();
   const pathname = usePathname();
 
-  const { token } = useUserStore();
-  const { accountId } = useWalletStore();
+  const token = useUserStore((state) => state.token);
+  const accountId = useWalletStore((state) => state.accountId);
+
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (blockIfLoggedIn && token) {
-      router.replace('/dashboard'); // or your home page
-    } else if (blockIfWalletConnected && accountId) {
-      router.replace('/dashboard'); // or maybe `/profile`
-    }
-  }, [blockIfLoggedIn, blockIfWalletConnected, token, accountId, router, pathname]);
+    setHydrated(true);
+  }, []);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    if (blockIfLoggedIn && token) {
+      router.replace('/workflows');
+    } else if (blockIfWalletConnected && accountId) {
+      router.replace('/workflows');
+    }
+  }, [hydrated, blockIfLoggedIn, blockIfWalletConnected, token, accountId, router]);
+
+  if (!hydrated) return null;
   if ((blockIfLoggedIn && token) || (blockIfWalletConnected && accountId)) {
-    return null; // avoid flashing the login page
+    return null;
   }
 
   return <>{children}</>;

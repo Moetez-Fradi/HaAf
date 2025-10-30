@@ -21,6 +21,7 @@ import ReactFlow, {
   OnSelectionChangeParams,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import RouteGuard from '../../../components/RouteGuard';
 
 /* ────────────────────── Types ────────────────────── */
 interface Tool {
@@ -388,6 +389,7 @@ const saveWorkflow = async () => {
 
 
   return (
+    <RouteGuard requireLogin>
     <div className="flex min-h-screen bg-[#050b15] text-white font-inter">
       {/* Left sidebar (no longer fixed). Width toggles between w-80 and w-0 */}
       <aside className={`flex-none transition-all duration-300 ${leftVisible ? 'w-80 p-6' : 'w-0 p-0'} border-r border-white/10 bg-[#071424] overflow-hidden`}>
@@ -708,6 +710,7 @@ const saveWorkflow = async () => {
         </div>
       )}
     </div>
+    </RouteGuard>
   );
 }
 
