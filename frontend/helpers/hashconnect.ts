@@ -1,4 +1,3 @@
-// helpers/hashconnect.ts
 import { HashConnect } from "hashconnect";
 
 const STORAGE_KEY = "agenthive_hashconnect_v1";
@@ -11,9 +10,6 @@ function loadSaved() {
 function saveSaved(obj: any) {
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
-}
-export async function resetSaved() {
-  if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
 }
 
 export default async function connectToWallet() {
@@ -43,13 +39,21 @@ export default async function connectToWallet() {
       saveSaved({ privKey: initData.privKey, topic: initData.topic ?? saved?.topic ?? null });
     }
 
-    // attach pairing listener early (caller may also attach)
+    // Create a promise to resolve when wallet pairs
+    let pairedResolve: (val: any) => void;
+    const pairedPromise = new Promise((resolve) => {
+      pairedResolve = resolve;
+    });
+
     hc.pairingEvent.on((pairingData: any) => {
-      // keep local stored topic in sync
       const s = loadSaved() || {};
       if (pairingData.topic) {
         s.topic = pairingData.topic;
         saveSaved(s);
+      }
+
+      if (pairingData.accountIds?.length) {
+        pairedResolve(pairingData);
       }
     });
 
@@ -57,7 +61,7 @@ export default async function connectToWallet() {
     const pairingString = hc.generatePairingString(state, NETWORK, false);
     hc.findLocalWallets();
 
-    return { success: true, pairingString, state, hc };
+    return { success: true, hc, state, pairingString, pairedPromise };
   } catch (err: any) {
     return { success: false, error: err?.message ?? String(err) };
   }

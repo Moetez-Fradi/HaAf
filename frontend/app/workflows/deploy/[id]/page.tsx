@@ -1,3 +1,4 @@
+// app/(whatever)/DeployWithTestsPage.tsx  (replace your existing file)
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -30,14 +31,26 @@ type Workflow = {
   description?: string;
 };
 
+type Payout = {
+  paymentId?: string;
+  receiver: string;
+  amount: number;
+  toolId?: string;
+  toolName?: string;
+};
+
+type DeployResponse = {
+  instanceId?: string;
+  usageUrl?: string;
+  runnerReport?: any;
+  mapping?: any;
+  receipt?: Payout[];
+};
+
 /* ------------------- Helper: tolerant parser ------------------- */
 function tryParseToolInputShape(raw: string | undefined | null): any | null {
   if (!raw) return null;
-  // 1) try native JSON.parse
-  try {
-    return JSON.parse(raw);
-  } catch {}
-  // 2) normalize single quotes/unquoted keys -> JSON
+  try { return JSON.parse(raw); } catch {}
   try {
     let s = raw.trim();
     s = s.replace(/`/g, '"');
@@ -46,7 +59,6 @@ function tryParseToolInputShape(raw: string | undefined | null): any | null {
     s = s.replace(/,(\s*[}\]])/g, '$1');
     return JSON.parse(s);
   } catch (e) {
-    // 3) last resort: evaluate as JS object literal (risky). Use only when necessary.
     try {
       // eslint-disable-next-line no-new-func
       const fn = new Function(`return (${raw});`);
@@ -67,13 +79,12 @@ export default function DeployWithTestsPage() {
   const [loading, setLoading] = useState(true);
   const [instance, setInstance] = useState<PrivateWorkflowInstance | null>(null);
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
-  const [toolInputShape, setToolInputShape] = useState<any>(null); // object or string or null
+  const [toolInputShape, setToolInputShape] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // tests state: array of per-test input objects (keys are inputShape keys)
   const [tests, setTests] = useState<Array<Record<string, any>>>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<DeployResponse | null>(null);
   const [responseText, setResponseText] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,7 +93,6 @@ export default function DeployWithTestsPage() {
     const fetch = async () => {
       setLoading(true);
       setError(null);
-      // parse stored token
       const tokenString = localStorage.getItem('access_token');
       let token = '';
       if (tokenString) {
@@ -95,7 +105,6 @@ export default function DeployWithTestsPage() {
       }
 
       try {
-        // 1) fetch instance
         const instRes = await axios.get<PrivateWorkflowInstance>(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/workflow-instances/${instanceId}`,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
@@ -103,7 +112,6 @@ export default function DeployWithTestsPage() {
         const inst = instRes.data;
         setInstance(inst);
 
-        // optional: fetch workflow (not strictly needed, but helpful)
         let wf: Workflow | null = null;
         if (inst.workflowId) {
           try {
@@ -118,11 +126,9 @@ export default function DeployWithTestsPage() {
           }
         }
 
-        // find first node in graph
         const sourceGraph = wf?.graphJson ?? inst.graphJson;
         const firstNode = sourceGraph?.nodes?.[0];
 
-        // fetch tool for authoritative inputShape if possible
         let inputShape: any = null;
         if (firstNode?.toolId) {
           try {
@@ -140,7 +146,6 @@ export default function DeployWithTestsPage() {
           }
         }
 
-        // fallback to node-level input shape if tool fetch failed
         if (!inputShape) {
           let shape =
             firstNode?.inputShape ??
@@ -156,10 +161,8 @@ export default function DeployWithTestsPage() {
 
         setToolInputShape(inputShape);
 
-        // initialize with one empty test by default
         if (tests.length === 0) {
           if (inputShape && typeof inputShape === 'object' && !Array.isArray(inputShape)) {
-            // create one empty test object with keys
             const template: Record<string, any> = {};
             Object.keys(inputShape).forEach(k => (template[k] = ''));
             setTests([template]);
@@ -181,7 +184,7 @@ export default function DeployWithTestsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instanceId]);
 
-  /* ---------- Test form helpers ---------- */
+  /* ---------- Test helpers (unchanged) ---------- */
   const addTest = () => {
     if (toolInputShape && typeof toolInputShape === 'object' && !Array.isArray(toolInputShape)) {
       const template: Record<string, any> = {};
@@ -202,7 +205,7 @@ export default function DeployWithTestsPage() {
     setTests(prev => prev.map((t, i) => (i === testIndex ? { ...t, [key]: value } : t)));
   };
 
-  /* ---------- Submit deploy + tests ---------- */
+  /* ---------- Deploy handler (mostly unchanged) ---------- */
   const handleDeploy = async (e?: React.FormEvent) => {
     e?.preventDefault?.();
     if (!instance) {
@@ -214,16 +217,10 @@ export default function DeployWithTestsPage() {
       return;
     }
 
-    // Build tests array in the shape the server expects: [{ input: {...} }, ... ]
     const builtTests = tests.map(t => {
-      // if input is already shaped as {text:..} we'll wrap as { input: {...} }
-      // ensure each test is { input: <object> }
       if (toolInputShape && typeof toolInputShape === 'object' && !Array.isArray(toolInputShape)) {
         return { input: { ...t } };
       } else if (toolInputShape && typeof toolInputShape === 'string') {
-        // string shape: server example shows input: { "text": "..." } pattern,
-        // but if the tool expects a single string we put it under 'input' key
-        // to be consistent with your earlier examples we'll wrap as { input: t.input || '' }
         return { input: { value: t.input ?? '' } };
       } else {
         return { input: t };
@@ -231,11 +228,10 @@ export default function DeployWithTestsPage() {
     });
 
     const payload = {
-      graphJson: instance.graphJson, // the user said graphJson is already stored in instance
+      graphJson: instance.graphJson,
       tests: builtTests,
     };
 
-    // token
     const tokenString = localStorage.getItem('access_token');
     let token = '';
     if (tokenString) {
@@ -252,7 +248,7 @@ export default function DeployWithTestsPage() {
     setResponseText(null);
 
     try {
-      const res = await axios.post(
+      const res = await axios.post<DeployResponse>(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/workflows/${instance.workflowId}/deploy`,
         payload,
         {
@@ -263,7 +259,10 @@ export default function DeployWithTestsPage() {
       setResponse(res.data);
       setResponseText(JSON.stringify(res.data, null, 2));
       alert('Deploy + tests submitted successfully');
-      // remain on the same page as requested
+
+      console.log(res.data)
+
+      // if server returned payouts, keep them in state and show pay UI (below)
     } catch (err: any) {
       console.error('Deploy failed', err);
       const message = err.response?.data ? JSON.stringify(err.response.data, null, 2) : err.message;
@@ -272,6 +271,33 @@ export default function DeployWithTestsPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  /* ---------- Payment UI helpers ---------- */
+  const computeTotal = (payouts?: Payout[]) => {
+    if (!payouts || payouts.length === 0) return 0;
+    return payouts.reduce((s, p) => s + Number(p.amount || 0), 0);
+  };
+
+  const handlePayClick = (deployResp: DeployResponse | null) => {
+    console.log('handlePayClick', deployResp);
+    // deployResp?.instanceId = 
+    // if (!deployResp?.instanceId) {
+    //   alert('Missing deploy instance id, cannot pay');
+    //   return;
+    // }
+    if (!deployResp) {
+      alert('Missing deploy response, cannot pay');
+      return;
+    }
+    // store deploy receipt so the payment page can use it (server may also support fetching by instanceId)
+    try {
+      sessionStorage.setItem(`payment_receipt_${deployResp.instanceId}`, JSON.stringify(deployResp));
+    } catch (e) {
+      console.warn('failed to store payment receipt in sessionStorage', e);
+    }
+    // route to payment page — page will load the receipt from sessionStorage or fallback to backend fetch
+    router.push(`/workflows/pay/${deployResp.instanceId}`);
   };
 
   /* ---------- Render ---------- */
@@ -287,7 +313,7 @@ export default function DeployWithTestsPage() {
           <h1 className="text-2xl font-bold">Deploy workflow & run tests</h1>
           <div className="text-sm text-gray-400">
             Instance: <span className="font-mono">{instance.id}</span>
-            <br></br>
+            <br />
             {instance.workflowId && (
               <> Workflow: <span className="font-mono">{instance.workflowId}</span></>
             )}
@@ -309,6 +335,7 @@ export default function DeployWithTestsPage() {
       </div>
 
       <form onSubmit={handleDeploy} className="space-y-4">
+        {/* --- tests UI (unchanged) --- */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Tests</h2>
           <div className="flex items-center gap-2">
@@ -339,7 +366,6 @@ export default function DeployWithTestsPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      // duplicate
                       setTests(prev => {
                         const copy = [...prev];
                         copy.splice(idx + 1, 0, JSON.parse(JSON.stringify(prev[idx] || {})));
@@ -400,8 +426,6 @@ export default function DeployWithTestsPage() {
                       onChange={(e) => {
                         try {
                           const parsed = JSON.parse(e.target.value);
-                          updateTestField(idx, '', parsed); // overwrite whole object by storing under ''
-                          // convert: replace test with parsed
                           setTests(prev => prev.map((t, i) => (i === idx ? parsed : t)));
                         } catch {
                           // ignore invalid JSON while typing
@@ -428,7 +452,6 @@ export default function DeployWithTestsPage() {
           <button
             type="button"
             onClick={() => {
-              // quick prefill: set first test text to an example
               setTests(prev => prev.map((t, i) => (i === 0 ? { ...t, text: 'i love technology!' } : t)));
             }}
             className="px-4 py-2 border rounded border-white/10 text-white"
@@ -453,7 +476,7 @@ export default function DeployWithTestsPage() {
         <div className="mt-6">
           <h3 className="font-semibold mb-2">Response details</h3>
           <div className="bg-[#071424] border border-white/6 rounded p-4">
-            <div className="text-sm text-gray-300">Usage URL: {response.usageUrl ?? response.workflowUsageUrl ?? '-'}</div>
+            <div className="text-sm text-gray-300">Usage URL: {response.usageUrl ?? response.runnerReport?.workflowUsageUrl ?? '-'}</div>
             {response.mapping && (
               <div className="mt-2 text-sm text-gray-300">Mapping: <pre className="font-mono">{JSON.stringify(response.mapping, null, 2)}</pre></div>
             )}
@@ -461,17 +484,49 @@ export default function DeployWithTestsPage() {
               <div className="mt-2 text-sm text-gray-300">Runner report: <pre className="font-mono">{JSON.stringify(response.runnerReport, null, 2)}</pre></div>
             )}
           </div>
-          <br></br>
-              {response?.runnerReport?.success && response.runnerReport.workflowUsageUrl && (
-      <button
-        onClick={() => router.push(`/workflows/${instance.workflowId}`)}
-        className="px-4 py-2 bg-green-600 text-black rounded"
-      >
-        Go to workflow
-      </button>
-    )}
+
+          {/* ---------------- Payment summary ---------------- */}
+          {response.receipt && response.receipt.length > 0 && (
+            <div className="mt-6 p-4 bg-[#071424] border border-white/6 rounded">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-300">Payments required</div>
+                  <div className="text-lg font-mono">{response.receipt.length} recipients</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-gray-300">Total (HBAR)</div>
+                  <div className="text-2xl font-bold">{computeTotal(response.receipt)}</div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <ul className="space-y-2">
+                  {response.receipt.map((p, i) => (
+                    <li key={i} className="flex items-center justify-between p-2 bg-[#0b1620] rounded">
+                      <div>
+                        <div className="font-semibold">{p.toolName ?? p.receiver}</div>
+                        <div className="text-xs text-gray-400">{p.receiver}</div>
+                      </div>
+                      <div className="font-mono">{p.amount} HBAR</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePayClick(response)}
+                  className="px-4 py-2 bg-yellow-400 text-black rounded"
+                >
+                  Pay now
+                </button>
+
+               
+              </div>
+            </div>
+          )}
         </div>
-        
       )}
     </div>
   );
