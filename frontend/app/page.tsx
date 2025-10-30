@@ -9,50 +9,46 @@ export default function HomePage() {
  
 
 
-  const values = [
-    {
-      icon: '🔓',
-      title: 'Decentralization First',
-      description: 'No single point of failure. Truly distributed AI execution across global node network.'
-    },
-    {
-      icon: '⚡',
-      title: 'Performance & Scale',
-      description: 'Leverage distributed computing for massive parallel AI task execution.'
-    },
-    {
-      icon: '🌍',
-      title: 'Accessibility',
-      description: 'Make advanced AI capabilities available to everyone, not just tech giants.'
-    },
-    {
-      icon: '💰',
-      title: 'Fair Economy',
-      description: 'Direct value transfer to contributors - developers, node hosts, and builders.'
-    }
-  ];
+const values = [
+  {
+    icon: '🔓',
+    title: 'Decentralization First',
+    description: "Break free from centralized control! Our platform distributes AI execution across a global network of nodes, ensuring no single entity can dominate. Say goodbye to expensive cloud bills, and empower a community of hardware contributors to earn while participating in AI growth."
+  },
+  {
+    icon: '🌍',
+    title: 'Universal Accessibility',
+    description: "AI for everyone, everywhere. Our ecosystem allows anyone, regardless of location or background, to build, test, and deploy intelligent workflows using community-created tools. Democratizing AI means giving power to the people, not just tech giants."
+  },
+  {
+    icon: '💰',
+    title: 'A Fair, Thriving Economy',
+    description: "Every contribution counts. Developers, node hosts, and builders are rewarded directly for their efforts, creating a transparent and sustainable ecosystem. Stop wasting resources on centralized monopolies, let value flow to the people driving innovation."
+  }
+];
+
 
 
   const features = [
     {
       title: 'Visual Workflow Builder',
-      description: 'Drag-and-drop interface to compose complex AI pipelines without coding',
-      capabilities: ['Node-based editor', 'Real-time preview', 'Template library', 'Version control']
+      description: 'Drag-and-drop interface to easily and quickly compose complex AI pipelines without coding.',
+      capabilities: []
     },
     {
-      title: 'AI Marketplace',
-      description: 'Discover, use, and monetize AI tools in our decentralized ecosystem',
-      capabilities: ['Tool discovery', 'Usage analytics', 'Revenue sharing', 'Community ratings']
+      title: 'Workflows and Tools Library',
+      description: 'Discover and use tools built and maintained by our community! Easily contribute and monetize your workflows and tools.',
+      capabilities: []
     },
     {
       title: 'DePIN Network',
-      description: 'Global distributed computing network for reliable AI execution',
-      capabilities: ['Auto-scaling', 'Geographic distribution', 'Fault tolerance', 'Low latency']
+      description: 'Global distributed computing network for reliable AI execution and fair chances against cloud providers',
+      capabilities: []
     },
     {
       title: 'HBAR Economy',
       description: 'Seamless micropayments and revenue distribution on Hedera network',
-      capabilities: ['Instant settlements', 'Low fees', 'Transparent ledger', 'Multi-currency support']
+      capabilities: []
     }
   ];
 
@@ -87,7 +83,7 @@ export default function HomePage() {
             Decentralize <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Intelligence</span>
           </h1>
           <p className="text-xl md:text-2xl text-cyan-400 mb-12 max-w-3xl mx-auto">
-Decentralize Intelligence. Build the Future.
+          AI for people, powered by people
           </p>
 
 
@@ -132,7 +128,7 @@ Decentralize Intelligence. Build the Future.
         <div className="max-w-6xl mx-auto">
           <h2 className="text-4xl font-bold text-white text-center mb-4">Powerful Features</h2>
           <p className="text-cyan-400 text-center mb-16 max-w-2xl mx-auto">
-            Everything you need to build, deploy, and monetize AI applications in a decentralized ecosystem
+            Everything you need to build, deploy, and monetize AI workflows in a decentralized ecosystem
           </p>
          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -154,25 +150,27 @@ Decentralize Intelligence. Build the Future.
             ))}
           </div>
         </div>
+        <br></br>
+        <br></br>
       </section>
 
 
       {/* Values Section */}
       <section id="values" className="relative z-10 px-8 py-20 bg-white/5">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold text-white text-center mb-4">Our Values</h2>
+          <h2 className="text-4xl font-bold text-white text-center mb-4">Our Values & Aims</h2>
           <p className="text-cyan-400 text-center mb-16 max-w-2xl mx-auto">
-            The principles that guide everything we build at AgentHive
+            Why did we build Agenthive ?
           </p>
          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-20">
             {values.map((value, index) => (
               <div key={index} className="text-center">
                 <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl flex items-center justify-center text-2xl mb-6 mx-auto">
                   {value.icon}
                 </div>
-                <h3 className="text-xl font-bold text-white mb-4">{value.title}</h3>
-                <p className="text-gray-400 text-sm">{value.description}</p>
+                <h3 className="text-3xl font-bold text-white mb-4">{value.title}</h3>
+                <p className="text-gray-400 text-md">{value.description}</p>
               </div>
             ))}
           </div>
@@ -201,12 +199,12 @@ Decentralize Intelligence. Build the Future.
                   <div className="text-gray-400 text-sm">Founded</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-cyan-400 mb-2">$4.2M</div>
+                  <div className="text-2xl font-bold text-cyan-400 mb-2">$1M</div>
                   <div className="text-gray-400 text-sm">Seed Funding</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-cyan-400 mb-2">15+</div>
-                  <div className="text-gray-400 text-sm">Countries</div>
+                  <div className="text-2xl font-bold text-cyan-400 mb-2">5+</div>
+                  <div className="text-gray-400 text-sm">Countries for expansion</div>
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-cyan-400 mb-2">24/7</div>
@@ -218,14 +216,15 @@ Decentralize Intelligence. Build the Future.
               <h3 className="text-2xl font-bold text-white mb-6">Our Mission</h3>
               <p className="text-cyan-400 text-lg mb-6">
                 "To democratize artificial intelligence by building the world's largest decentralized
-                network of AI tools and compute resources, empowering developers and users alike."
+                network of AI tools and compute resources, and the largest library of automation workflows
+                and tools, empowering developers and users alike."
               </p>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold">AC</span>
+                  <span className="text-white font-bold">MF</span>
                 </div>
                 <div>
-                  <div className="text-white font-semibold">Alex Chen</div>
+                  <div className="text-white font-semibold">Moetez Fradi</div>
                   <div className="text-cyan-400 text-sm">Founder & CEO</div>
                 </div>
               </div>
@@ -293,30 +292,18 @@ Decentralize Intelligence. Build the Future.
                       <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="currentColor" strokeWidth="2"/>
                       <path d="M22 6L12 13L2 6" stroke="currentColor" strokeWidth="2"/>
                     </svg>
-                    <span>hello@agenthive.ai</span>
+                    <span>moetezfradi7@gmail.com</span>
                   </div>
                   <div className="flex items-center gap-3 text-gray-400">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-cyan-400">
                       <path d="M22 16.92V19.92C22 20.52 21.53 21 20.94 21C10.47 21 2 12.53 2 3.06C2 2.47 2.48 2 3.08 2H6.08C6.67 2 7.15 2.48 7.15 3.08C7.15 4.03 7.35 4.95 7.74 5.79C7.87 6.08 7.83 6.42 7.62 6.67L5.85 8.88C7.36 12.2 10.38 15.22 13.7 16.73L15.91 14.96C16.16 14.75 16.5 14.71 16.79 14.84C17.63 15.23 18.55 15.43 19.5 15.43C20.09 15.43 20.57 15.91 20.57 16.5L20.58 16.92H22Z" stroke="currentColor" strokeWidth="2"/>
                     </svg>
-                    <span>+216 58175046</span>
+                    <span>+216 29296562</span>
                   </div>
                 </div>
               </div>
              
-              <div className="rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 p-6">
-                <h3 className="text-lg font-bold text-white mb-4">Follow Us</h3>
-                <div className="flex gap-4">
-                  {['Twitter', 'GitHub', 'Discord', 'LinkedIn'].map((social) => (
-                    <button
-                      key={social}
-                      className="flex-1 py-2 rounded-md bg-white/10 text-gray-400 hover:text-cyan-400 hover:bg-white/20 transition-all text-sm"
-                    >
-                      {social}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              
             </div>
           </div>
         </div>
