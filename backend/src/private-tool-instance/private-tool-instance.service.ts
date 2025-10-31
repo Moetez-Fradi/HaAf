@@ -54,8 +54,9 @@ export class PrivateToolInstanceService {
     }
   }
 
-  async runInstance(userId: string, instanceId: string, inputBody: Record<string, any>) {
-    const instance = await this.getInstance(instanceId, userId);
+  async runInstance( instanceId: string, inputBody: Record<string, any>) {
+    const instance = await this.getInstance(instanceId);
+    console.log("Running instance: ", instanceId, " at url: ", instance.usageUrl);
     if (!instance.usageUrl) {
       throw new InternalServerErrorException('Instance not ready yet');
     }
@@ -75,10 +76,9 @@ export class PrivateToolInstanceService {
     return this.prisma.privateToolInstance.findMany({ where: { userId } });
   }
 
-  async getInstance(id: string, userId: string) {
+  async getInstance(id: string) {
     const inst = await this.prisma.privateToolInstance.findUnique({ where: { id } });
     if (!inst) throw new NotFoundException('Instance not found');
-    if (inst.userId !== userId) throw new ForbiddenException('Not your instance');
     return inst;
   }
 

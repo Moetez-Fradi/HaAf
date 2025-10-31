@@ -2,11 +2,10 @@ import { Controller, Post, Body, UseGuards, Request, Get, Param, Delete } from '
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrivateToolInstanceService } from './private-tool-instance.service';
 
-@UseGuards(JwtAuthGuard)
 @Controller('instances')
 export class PrivateToolInstanceController {
   constructor(private service: PrivateToolInstanceService) {}
-
+  @UseGuards(JwtAuthGuard)
   @Post()
   async create(
     @Request() req,
@@ -22,8 +21,7 @@ export class PrivateToolInstanceController {
     @Param('id') id: string,
     @Body() inputBody: Record<string, any>,
   ) {
-      const userId = req.user.id;
-      return this.service.runInstance(userId, id, inputBody);
+      return this.service.runInstance(id, inputBody);
   }
 
   @Get()
@@ -33,9 +31,9 @@ export class PrivateToolInstanceController {
 
   @Get(':id')
   async get(@Request() req, @Param('id') id: string) {
-    return this.service.getInstance(id, req.user.id);
+    return this.service.getInstance(id);
   }
-
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async delete(@Request() req, @Param('id') id: string) {
     return this.service.deleteInstance(id, req.user.id);
