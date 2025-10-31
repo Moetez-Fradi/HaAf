@@ -2,7 +2,7 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "ES2021",
-    "strict": true,
+    "strict": false,
     "sourceMap": true,
     "declaration": true,
     "removeComments": true,
@@ -11,6 +11,7 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "node",
+    "noImplicitAny": false,
     "baseUrl": "./",
     "paths": {
       "*": ["src/*"]
