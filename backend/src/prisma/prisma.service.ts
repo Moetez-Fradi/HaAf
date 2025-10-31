@@ -10,8 +10,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
-    const maxRetries = 10; // max attempts
-    const delayMs = 3000; // 3 seconds between retries
+    const maxRetries = 50; // max attempts
+    const delayMs = 10000; // 3 seconds between retries
     let attempt = 0;
 
     while (attempt < maxRetries) {
