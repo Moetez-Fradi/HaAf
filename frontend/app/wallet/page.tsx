@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import connectToWallet from "../../helpers/hashconnect";
+import {connectToWallet} from "../../helpers/hashconnect";
 import { useRouter } from "next/navigation";
 import PublicRouteGuard from "../../components/PublicRouteGuard";
 

@@ -245,10 +245,6 @@ export default function ToolTestPage() {
   }
 
   async function startTest() {
-    if (!userWallet) {
-      alert('Please connect your wallet');
-      return;
-    }
     setTesting(true);
     setTestResult(null);
     try {
