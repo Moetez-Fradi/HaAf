@@ -1,25 +1,25 @@
-import { NestFactory } from '@nestjs/core'
-import { AppModule } from '../src/app.module'
-import { createServer, IncomingMessage, ServerResponse } from 'http'
-import { Server } from 'node:http'
+import { createServer } from 'http';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from '../src/app.module';
+import { Server } from 'http';
 
-let cachedServer: Server
+let server: Server;
 
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  if (!cachedServer) {
-    const app = await NestFactory.create(AppModule)
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule, { bodyParser: true });
+  app.enableCors({
+    origin: '*',
+    credentials: true,
+  });
 
-    app.enableCors({
-      origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    })
+  await app.init();
 
-    await app.init()
-    const expressApp = app.getHttpAdapter().getInstance()
-    cachedServer = createServer(expressApp)
-  }
+  server = createServer((req, res) => app.getHttpAdapter().getInstance()(req, res));
+}
 
-  return cachedServer.emit('request', req, res)
+bootstrap();
+
+export default async function handler(req: any, res: any) {
+  if (!server) await bootstrap();
+  server.emit('request', req, res);
 }
