@@ -95,8 +95,28 @@ const nodes = graphJson.nodes.map((n: any) => {
   if (!payer?.walletAccountId) {
     throw new InternalServerErrorException('Payer wallet not found');
   }
+    const total = receipt.reduce((sum: number, r: any) => sum + r.amount, 0);
 
-    return { success: true, instanceId: created.id, usageUrl: data.workflowUsageUrl, testReport: data, receipt, };
+const payment = await this.prisma.payment.upsert({
+  where: { instanceId : created.id },
+  update: {
+    payer: payer.walletAccountId,
+    receipt,
+    total,
+    paid: false,
+    memo: `Deployment payment for workflow ${workflowId}`,
+  },
+  create: {
+    instanceId: created.id,
+    payer: payer.walletAccountId,
+    receipt,
+    total,
+    paid: false,
+    memo: `Deployment payment for workflow ${workflowId}`,
+  },
+});
+
+    return { success: true, instanceId: created.id, usageUrl: data.workflowUsageUrl, testReport: data, receipt, paymentId: payment.id };
   }
 
   async createWorkflow(userId: string, wallet: string, graphJson: any, name?: string, fixedUsageFee?: number, description?: string) {
@@ -309,6 +329,8 @@ const nodes = graphJson.nodes.map((n: any) => {
     throw new InternalServerErrorException('Payer wallet not found');
   }
 
+    const total = receipt.reduce((sum: number, r: any) => sum + r.amount, 0);
+
     return {
       success: true,
       workflow: workflowId,
@@ -334,7 +356,6 @@ const nodes = graphJson.nodes.map((n: any) => {
     const items = await this.prisma.workflow.findMany({
       skip: (page - 1) * limit,
       take: limit,
-      where : { workflowStatus: "DEPLOYED"},
         include: {
     owner: {
       select: {

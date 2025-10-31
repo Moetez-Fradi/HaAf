@@ -35,9 +35,13 @@ export default function WorkflowsPage() {
   const loadWorkflows = async () => {
     setLoading(true);
     try {
+
       const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/workflows`;
+      console.log
       const res = await axios.get(url);
       let data: Workflow[] = res.data.workflows || [];
+
+      console.log('Fetched workflows:', res.data);
       
       if (searchQuery) {
         const q = searchQuery.toLowerCase();

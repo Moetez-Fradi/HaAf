@@ -3,35 +3,67 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import axios from 'axios';
-import connectToWallet from '../../../../helpers/hashconnect';
-import { TransferTransaction, Hbar } from '@hashgraph/sdk';
+import { Hbar, TransferTransaction, TransactionId, AccountId } from "@hashgraph/sdk";
+import { HashConnect } from "hashconnect";
 import { useUserStore } from '../../../../store/useUserStore';
 
-type Payout = {
-  receiver: string;
-  amount: number;
-  toolName?: string;
-};
+const STORAGE_KEY = 'agenthive_hashconnect_v1';
+const NETWORK = 'testnet';
 
-type Payment = {
-  instanceId: string;
-  receipt: Payout[];
-  total: number;
-  memo?: string;
-  paid: boolean;
-  txHash?: string;
-};
-
-interface HashConnectPairing {
-  topic: string;
-  accountIds: string[];
-  metadata: {
-    name: string;
-    description?: string;
-    icon?: string;
-    url?: string;
-  };
+function loadSaved() {
+  if (typeof window === 'undefined') return null;
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { return null; }
 }
+function saveSaved(obj: any) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+}
+
+async function connectToWallet() {
+  const hc = new HashConnect();
+  const appMetadata = {
+    name: 'AgentHive PoC',
+    description: 'AgentHive payment PoC',
+    icon: 'https://cdn-icons-png.flaticon.com/512/4712/4712109.png',
+    url: typeof window !== 'undefined' ? window.location.origin : 'http://localhost',
+  };
+
+  const saved = loadSaved();
+  let initData: any;
+  if (saved?.privKey) {
+    try { initData = await hc.init(appMetadata, saved.privKey); } catch { initData = await hc.init(appMetadata); }
+  } else {
+    initData = await hc.init(appMetadata);
+  }
+
+  if (initData?.privKey) saveSaved({ ...saved, privKey: initData.privKey, topic: initData.topic ?? saved?.topic ?? null });
+
+  let pairedResolve: (v: any) => void;
+  const pairedPromise = new Promise<any>((resolve) => { pairedResolve = resolve; });
+
+  hc.pairingEvent.on((pairingData: any) => {
+    const s = loadSaved() || {};
+    if (pairingData.topic) { s.topic = pairingData.topic; saveSaved(s); }
+    if (pairingData.accountIds?.length) {
+      s.accountIds = pairingData.accountIds;
+      saveSaved(s);
+      pairedResolve(pairingData);
+    }
+  });
+
+  const state = await hc.connect();
+  hc.findLocalWallets();
+  const pairingString = hc.generatePairingString(state, NETWORK, false);
+
+  if (saved?.accountIds?.length) {
+    return { success: true, hc, pairingString, pairedPromise, pairingData: { accountIds: saved.accountIds, topic: saved.topic } };
+  }
+
+  return { success: true, hc, pairingString, pairedPromise, pairingData: null };
+}
+
+type Payout = { receiver: string; amount: number; toolName?: string };
+type Payment = { instanceId: string; receipt: Payout[]; total: number; memo?: string; paid: boolean; txHash?: string };
 
 export default function PayPage() {
   const params = useParams();
@@ -44,60 +76,66 @@ export default function PayPage() {
   const [txResult, setTxResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [hc, setHc] = useState<any | null>(null);
+  const [pairingString, setPairingString] = useState<string | null>(null);
+  const [pairedPromise, setPairedPromise] = useState<Promise<any> | null>(null);
+  const [pairingData, setPairingData] = useState<any | null>(null);
+
   const { userId, token } = useUserStore.getState();
 
-  // Load payment from backend
   useEffect(() => {
     if (!instanceId) return;
-
     const saved = sessionStorage.getItem(`payment_${instanceId}`);
     if (saved) {
-      try {
-        setPayment(JSON.parse(saved));
-        setLoading(false);
-        return;
-      } catch {}
+      try { setPayment(JSON.parse(saved)); setLoading(false); return; } catch {}
     }
-
     (async () => {
       setLoading(true);
       try {
-        const res = await axios.get<Payment>(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/payments/receipt/${instanceId}`,
-          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-        );
+        const res = await axios.get<Payment>(`${process.env.NEXT_PUBLIC_BACKEND_URL}/payments/${instanceId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
         setPayment(res.data);
+        try { sessionStorage.setItem(`payment_${instanceId}`, JSON.stringify(res.data)); } catch {}
       } catch (err: any) {
         console.error('Failed to load payment', err);
         setError('Failed to load payment receipt');
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     })();
   }, [instanceId, token]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res: any = await connectToWallet();
+        if (res?.hc) setHc(res.hc);
+        if (res?.pairingString) setPairingString(res.pairingString);
+        if (res?.pairedPromise) setPairedPromise(res.pairedPromise);
+        if (res?.pairingData) setPairingData(res.pairingData);
+        if (!res?.pairingData && res?.pairedPromise) {
+          const pd = await res.pairedPromise;
+          setPairingData(pd);
+        }
+      } catch (err) {
+        console.error('HashConnect init failed', err);
+      }
+    })();
+  }, []);
+
   async function finalizePayment(txId: string | undefined) {
-  try {
-    const res = await axios.post(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/payments/confirm-payments`,
-      { instanceId: payment?.instanceId, txId },
-      { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-    );
-
-    alert('Payment confirmed. Server response: ' + JSON.stringify(res.data?.message ?? res.data));
-    router.push(`/workflows/${res.data?.workflowId ?? ''}` || `/workflows`);
-  } catch (err) {
-    console.error('Failed to finalize payment', err);
-    throw err;
+    try {
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL}/payments/confirm-payments`, { instanceId: payment?.instanceId, txId }, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      alert('Payment confirmed. Server response: ' + JSON.stringify(res.data?.message ?? res.data));
+      router.push(`/workflows/${res.data?.workflowId ?? ''}` || `/workflows`);
+    } catch (err) {
+      console.error('Failed to finalize payment', err);
+      throw err;
+    }
   }
-}
 
-  const computeTotal = (p: Payout[]) =>
-    p.reduce((sum, x) => sum + Number(x.amount || 0), 0);
+  const computeTotal = (p: Payout[]) => p.reduce((sum, x) => sum + Number(x.amount || 0), 0);
 
-  async function doPay() {
+async function doPay() {
   if (!payment?.receipt || payment.receipt.length === 0) {
-    alert('Nothing to pay');
+    alert("Nothing to pay");
     return;
   }
 
@@ -105,71 +143,77 @@ export default function PayPage() {
   setError(null);
 
   try {
-    if (!userId) throw new Error('No user logged in');
+    console.log("starting payment flow");
+    if (!hc) throw new Error("HashConnect not initialized");
 
-    // Fetch payer wallet accountId from backend
-    const userRes = await axios.get<{ user: { walletAccountId?: string } }>(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${userId}`,
-      { headers: token ? { Authorization: `Bearer ${token}` } : {} }
-    );
+    let pd = pairingData;
+    console.log("pairing data:", pd);
+    if (!pd) {
+      if (!pairedPromise) throw new Error("Wallet not paired and no pairing flow available");
+      console.log("awaiting");
+      pd = await pairedPromise;
+      setPairingData(pd);
+    }
 
-    const accountId = userRes.data?.user?.walletAccountId;
-    if (!accountId) throw new Error('User does not have a walletAccountId on file');
+    if (!pd?.accountIds?.length) throw new Error("No account id available from wallet");
+    const fromId = pd.accountIds[0];
+    if (!fromId || typeof fromId !== "string") throw new Error("Invalid account id");
 
-    // Connect to wallet (HashConnect)
-    const { success, hc, pairingString, pairedPromise } = await connectToWallet();
-    if (!success || !hc) throw new Error('Wallet connect failed');
+    console.log("paying from:", fromId);
 
-    console.log('Pairing string (show this QR to wallet or use local wallet):', pairingString);
+    const total =
+      payment.total ?? payment.receipt.reduce((s, it) => s + Number(it.amount || 0), 0);
+    if (total <= 0) throw new Error("Nothing to pay");
 
-    // Wait for wallet to pair and cast to proper type
-    const pairingData = (await pairedPromise) as any;
-    console.log('Wallet paired', pairingData);
-
-    // Build transaction
-    const total = payment.total ?? payment.receipt.reduce((sum, x) => sum + (x.amount || 0), 0);
-    let tx = new TransferTransaction();
-
-    // Debit payer
-    tx = tx.addHbarTransfer(accountId, new Hbar(-total));
-
-    // Credit each recipient (grouped by receiver)
     const byReceiver: Record<string, number> = {};
-    for (const item of payment.receipt) {
-      if (!item.receiver) continue;
-      byReceiver[item.receiver] = (byReceiver[item.receiver] || 0) + Number(item.amount || 0);
-    }
-    for (const r of Object.keys(byReceiver)) {
-      tx = tx.addHbarTransfer(r, new Hbar(byReceiver[r]));
+    for (const it of payment.receipt) {
+      if (!it.receiver) continue;
+      byReceiver[it.receiver] = (byReceiver[it.receiver] || 0) + Number(it.amount || 0);
     }
 
-    if (payment.memo) tx = tx.setTransactionMemo(payment.memo);
+    console.log("aggregated recipients:", byReceiver);
 
-    // Get signer from HashConnect (pass HashConnectProvider)
-    const signer = hc.getSigner(pairingData);
-    if (!signer) throw new Error('Signer not available from HashConnect');
+    const tx = new TransferTransaction();
+    // tx.setTransactionId(TransactionId.generate(AccountId.fromString(fromId))); // ✅
+    tx.addHbarTransfer(fromId, new Hbar(-total));
 
-    // Execute transaction
-    // @ts-ignore
-    await (tx as any).freezeWithSigner?.(signer);
-    // @ts-ignore
-    const txResponse = await (tx as any).executeWithSigner?.(signer);
-    const txId = txResponse?.transactionId?.toString?.() ?? txResponse?.toString?.();
+    for (const r of Object.keys(byReceiver))
+      tx.addHbarTransfer(r, new Hbar(byReceiver[r]));
 
-    console.log('Transaction successful', txId);
+    if (payment.memo) tx.setTransactionMemo(payment.memo);
+
+    console.log("prepared tx:", tx);
+
+    // ✅ Properly build signer with account + topic
+      if (!pd.topic) throw new Error("Pairing topic missing");
+    const provider = hc.getProvider(NETWORK, pd.topic, fromId);
+    const signer = hc.getSigner(provider);
+    if (!signer) throw new Error("Signer not available from HashConnect");
+
+    console.log("signer:", signer);
+
+    console.log("before freeze:", tx.transactionId?.toString?.());
+    await tx.freezeWithSigner(signer);
+    console.log("after freeze");
+
+    const txResponse = await tx.executeWithSigner(signer);
+    console.log("txResponse:", txResponse);
+
     setTxResult(txResponse);
-
-    // Finalize payment on backend
-    await finalizePayment(txId); // <-- you must define this in your file
+    console.log("finalizing payment...");
+    try {
+      await finalizePayment(tx.transactionId?.toString());
+    } catch (err) {
+      console.warn("Finalize payment failed, transaction executed", err);
+    }
 
     setPaying(false);
   } catch (err: any) {
-    console.error('Payment failed', err);
+    console.error("Payment failed", err);
     setError(err?.message ?? String(err));
     setPaying(false);
   }
 }
-
 
   if (!instanceId) return <div className="p-6">Missing instance id</div>;
   if (loading) return <div className="p-6">Loading payment details…</div>;
@@ -179,6 +223,13 @@ export default function PayPage() {
       <h1 className="text-2xl font-bold mb-4">Confirm Payment</h1>
       {error && <div className="mb-4 text-red-400">{error}</div>}
       {!payment && <div className="text-gray-400">No payment receipt found.</div>}
+
+      {pairingString && !pairingData && (
+        <div className="mb-4 p-3 bg-yellow-50 rounded">
+          <div className="text-sm text-gray-700 mb-2">Pair your wallet (copy/paste pairing string into HashPack or scan QR)</div>
+          <textarea readOnly value={pairingString} className="w-full p-2 font-mono text-xs" rows={3} />
+        </div>
+      )}
 
       {payment && (
         <>
@@ -192,9 +243,7 @@ export default function PayPage() {
           <div className="bg-[#071424] border border-white/6 rounded p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="text-sm text-gray-300">Recipients</div>
-              <div className="text-sm text-gray-300">
-                Total: <span className="font-mono">{computeTotal(payment.receipt)} HBAR</span>
-              </div>
+              <div className="text-sm text-gray-300">Total: <span className="font-mono">{computeTotal(payment.receipt)} HBAR</span></div>
             </div>
 
             <ul className="space-y-2">
@@ -210,18 +259,11 @@ export default function PayPage() {
             </ul>
 
             <div className="mt-4 flex gap-2">
-              <button
-                onClick={doPay}
-                disabled={paying}
-                className="px-4 py-2 bg-yellow-400 text-black rounded"
-              >
+              <button onClick={doPay} disabled={paying} className="px-4 py-2 bg-yellow-400 text-black rounded">
                 {paying ? 'Processing payment…' : `Pay ${computeTotal(payment.receipt)} HBAR`}
               </button>
 
-              <button
-                onClick={() => router.push(`/workflows/testing/${payment.instanceId ?? ''}`)}
-                className="px-4 py-2 border rounded"
-              >
+              <button onClick={() => router.push(`/workflows/testing/${payment.instanceId ?? ''}`)} className="px-4 py-2 border rounded">
                 Cancel
               </button>
             </div>

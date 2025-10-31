@@ -1,4 +1,5 @@
 import { HashConnect } from "hashconnect";
+import { TransferTransaction, Hbar } from "@hashgraph/sdk";
 
 const STORAGE_KEY = "agenthive_hashconnect_v1";
 const NETWORK = "testnet";
@@ -12,57 +13,92 @@ function saveSaved(obj: any) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
 }
 
-export default async function connectToWallet() {
+export async function connectToWallet() {
   const hc = new HashConnect();
   const appMetadata = {
-    name: "Agent Hive",
-    description: "Agent Hive Dapp",
+    name: "AgentHive PoC",
+    description: "Agenthive test",
     icon: "https://cdn-icons-png.flaticon.com/512/4712/4712109.png",
-    url: typeof window !== "undefined" ? window.location.origin : "http://localhost",
   };
 
   const saved = loadSaved();
   let initData: any;
-
-  try {
-    if (saved?.privKey) {
-      try {
-        initData = await (hc as any).init(appMetadata, saved.privKey);
-      } catch {
-        initData = await hc.init(appMetadata);
-      }
-    } else {
-      initData = await hc.init(appMetadata);
-    }
-
-    if (initData?.privKey) {
-      saveSaved({ privKey: initData.privKey, topic: initData.topic ?? saved?.topic ?? null });
-    }
-
-    // Create a promise to resolve when wallet pairs
-    let pairedResolve: (val: any) => void;
-    const pairedPromise = new Promise((resolve) => {
-      pairedResolve = resolve;
-    });
-
-    hc.pairingEvent.on((pairingData: any) => {
-      const s = loadSaved() || {};
-      if (pairingData.topic) {
-        s.topic = pairingData.topic;
-        saveSaved(s);
-      }
-
-      if (pairingData.accountIds?.length) {
-        pairedResolve(pairingData);
-      }
-    });
-
-    const state = await hc.connect();
-    const pairingString = hc.generatePairingString(state, NETWORK, false);
-    hc.findLocalWallets();
-
-    return { success: true, hc, state, pairingString, pairedPromise };
-  } catch (err: any) {
-    return { success: false, error: err?.message ?? String(err) };
+  if (saved?.privKey) {
+    try { initData = await hc.init(appMetadata, saved.privKey); } catch { initData = await hc.init(appMetadata); }
+  } else {
+    initData = await hc.init(appMetadata);
   }
+
+  if (initData?.privKey) saveSaved({ ...saved, privKey: initData.privKey, topic: initData.topic ?? saved?.topic ?? null });
+
+  const pairedPromise = new Promise<any>((resolve) => {
+    hc.pairingEvent.on((pd: any) => {
+      const s = loadSaved() || {};
+      if (pd.topic) { s.topic = pd.topic; saveSaved(s); }
+      if (pd.accountIds?.length) {
+        s.accountIds = pd.accountIds;
+        saveSaved(s);
+        resolve(pd);
+      }
+    });
+  });
+
+  const state = await hc.connect();
+  hc.findLocalWallets();
+  const pairingString = hc.generatePairingString(state, NETWORK, false);
+
+  if (saved?.accountIds?.length) {
+    return { hc, pairingString, pairingData: { accountIds: saved.accountIds, topic: saved.topic }, pairedPromise };
+  }
+
+  return { hc, pairingString, pairedPromise, pairingData: null };
+}
+
+export async function doPay(options: {
+  hc: any;
+  pairingData: any | null;
+  payment: { receipt: Array<{ receiver?: string; amount?: number }>; total?: number; memo?: string };
+  waitForPair?: boolean;
+}) {
+  const { hc, payment } = options;
+  let pairingData = options.pairingData;
+  if (!hc) throw new Error("HashConnect instance required");
+
+  if (!pairingData && options.waitForPair) {
+    const saved = loadSaved();
+    if (saved?.accountIds?.length) pairingData = { accountIds: saved.accountIds, topic: saved.topic };
+    else {
+      const pd = await (options as any).pairedPromise;
+      pairingData = pd;
+    }
+  }
+
+  if (!pairingData?.accountIds?.length) throw new Error("Wallet not paired or no account ID available");
+  if (!pairingData.topic) throw new Error("Pairing topic missing");
+
+  const fromId = pairingData.accountIds[0];
+  const total = payment.total ?? payment.receipt.reduce((s, it) => s + Number(it.amount || 0), 0);
+  if (total <= 0) throw new Error("Nothing to pay");
+
+  const byReceiver: Record<string, number> = {};
+  for (const it of payment.receipt) {
+    if (!it.receiver) continue;
+    byReceiver[it.receiver] = (byReceiver[it.receiver] || 0) + Number(it.amount || 0);
+  }
+
+  const tx = new TransferTransaction().setTransactionMemo(payment.memo || "");
+  tx.addHbarTransfer(fromId, new Hbar(-total));
+  for (const r of Object.keys(byReceiver)) {
+    tx.addHbarTransfer(r, new Hbar(byReceiver[r]));
+  }
+
+  const provider = hc.getProvider(NETWORK, pairingData.topic, fromId);
+  const signer = hc.getSigner(provider);
+  if (!signer) throw new Error("Signer not available from HashConnect");
+
+  await (tx as any).freezeWithSigner(signer);
+  const txResponse = await (tx as any).executeWithSigner(signer);
+  const txId = txResponse?.transactionId?.toString?.() ?? String(txResponse);
+
+  return { txId, txResponse };
 }

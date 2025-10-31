@@ -40,7 +40,7 @@ export class PrivateWorkflowInstanceService {
   }
 
   async runInstance(userId: string, instanceId: string, inputBody: Record<string, any>) {
-    const instance = await this.getInstance(instanceId, userId);
+    const instance = await this.getInstance(instanceId);
     if (!instance.usageUrl) throw new InternalServerErrorException('Instance not ready yet');
 
     try {
@@ -56,10 +56,9 @@ export class PrivateWorkflowInstanceService {
     return this.prisma.privateWorkflowInstance.findMany({ where: { ownerUserId: userId } });
   }
 
-  async getInstance(id: string, userId: string) {
+  async getInstance(id: string) {
     const inst = await this.prisma.privateWorkflowInstance.findUnique({ where: { id } });
     if (!inst) throw new NotFoundException('Instance not found');
-    if (inst.ownerUserId !== userId) throw new ForbiddenException('Not your instance');
     return inst;
   }
 

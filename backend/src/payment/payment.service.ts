@@ -40,8 +40,8 @@ export class PaymentsService {
   }
 
   /** Fetch stored payment by instanceId */
-  async getPaymentByInstance(instanceId: string) {
-    const payment = await this.prisma.payment.findUnique({ where: { instanceId } });
+  async getPaymentByInstance(id: string) {
+    const payment = await this.prisma.payment.findUnique({ where: { id } });
     if (!payment) throw new NotFoundException('Payment not found');
     return payment;
   }

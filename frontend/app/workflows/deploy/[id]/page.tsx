@@ -45,6 +45,7 @@ type DeployResponse = {
   runnerReport?: any;
   mapping?: any;
   receipt?: Payout[];
+  paymentId?: string;
 };
 
 /* ------------------- Helper: tolerant parser ------------------- */
@@ -105,8 +106,10 @@ export default function DeployWithTestsPage() {
       }
 
       try {
+        const backend_url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        console.log(backend_url)
         const instRes = await axios.get<PrivateWorkflowInstance>(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/workflow-instances/${instanceId}`,
+          `${backend_url}/workflow-instances/${instanceId}`,
           { headers: token ? { Authorization: `Bearer ${token}` } : {} }
         );
         const inst = instRes.data;
@@ -292,12 +295,12 @@ export default function DeployWithTestsPage() {
     }
     // store deploy receipt so the payment page can use it (server may also support fetching by instanceId)
     try {
-      sessionStorage.setItem(`payment_receipt_${deployResp.instanceId}`, JSON.stringify(deployResp));
+      sessionStorage.setItem(`payment_receipt_${deployResp.paymentId}`, JSON.stringify(deployResp));
     } catch (e) {
       console.warn('failed to store payment receipt in sessionStorage', e);
     }
     // route to payment page — page will load the receipt from sessionStorage or fallback to backend fetch
-    router.push(`/workflows/pay/${deployResp.instanceId}`);
+    router.push(`/workflows/pay/${deployResp.paymentId}`);
   };
 
   /* ---------- Render ---------- */
