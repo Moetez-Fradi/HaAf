@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { WorkflowService } from './workflow.service';
 import { WorkflowController } from './workflow.controller';
-import { PrismaModule } from 'src/prisma/prisma.module';
+import { PrismaModule } from '../prisma/prisma.module';
 import { HttpModule } from '@nestjs/axios';
-import { NodeService } from 'src/node/node.service';
-import { HederaService } from 'src/hedera/hedera.service';
+import { NodeService } from '../node/node.service';
+import { HederaService } from '../hedera/hedera.service';
 
 @Module({
   imports: [PrismaModule, HttpModule],

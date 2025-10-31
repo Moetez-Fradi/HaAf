@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrivateWorkflowInstanceController } from './private-workflow-instance.controller';
 import { PrivateWorkflowInstanceService } from './private-workflow-instance.service';
-import { PrismaModule } from 'src/prisma/prisma.module';
+import { PrismaModule } from '../prisma/prisma.module';
 import { HttpModule } from '@nestjs/axios';
 
 @Module({
