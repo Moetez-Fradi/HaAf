@@ -18,20 +18,20 @@ interface CreateToolForm {
 const API_BASE = 'http://localhost:3001';
 
 const getAuthToken = () => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('access_token');
-    if (!stored) return null;
-
-    try {
-      const parsed = JSON.parse(stored);
-      return parsed?.state?.token || null;
-    } catch (e) {
-      console.error('Failed to parse access_token:', e);
-      return null;
+    const tokenString = localStorage.getItem('access_token');
+    let token = '';
+    if (tokenString) {
+      try {
+        const parsed = JSON.parse(tokenString);
+        token = parsed.state?.token ?? '';
+      } catch (e) {
+        console.error('Failed to parse access_token from localStorage', e);
+      }
     }
-  } 
-  return null;
+    console.log(token);
+    return token;
 };
+
 export default function CreateToolPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -75,6 +75,8 @@ const [formData, setFormData] = useState<CreateToolForm>({
         },
         body: JSON.stringify(payload),
       });
+
+      console.log('Response status:', response);
 
       if (!response.ok) {
         const error = await response.json();

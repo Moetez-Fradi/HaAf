@@ -10,7 +10,11 @@ const docker = new Docker();
 dotenv.config();
 const app = express();
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: '*',           // allow all origins
+  methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','Accept'],
+}));
 
 app.post("/run", async (req, res) => {
   try {
@@ -60,7 +64,7 @@ app.post("/run-and-test", async (req, res) => {
       return res.status(400).json({ error: "instanceId, dockerImageUrl, envCipher required" });
 
     const envVars = decryptEnv(envCipher);
-    console.log("we got them: ", envVars);
+    console.log("we got the cipher: ", envCipher);
     await pullImage(dockerImageUrl);
     console.log("pulled!");
 
