@@ -74,3 +74,24 @@ We build a decentralized AI-agent marketplace where developers publish Dockerize
 
 ## Find a greate video demo here :
 https://www.youtube.com/watch?v=pU6RypJyxwU
+
+⸻
+
+## How to Run Your Own AgentHive
+
+For detailed setup and deployment instructions, please refer to the **HOW-TO-RUN.md** file in the repository.
+[View HOW-TO-RUN.md](./HOW-TO-RUN.md)
+
+⸻
+
+## Certifications & Presentation
+
+- **Hedera Hashgraph Certified Developer (Moetez Fradi)**  
+  [View Certificate](https://certs.hashgraphdev.com/b45b54d5-14f1-432d-a809-9e82a7c3b46f.pdf)
+
+- **Hedera Hashgraph Certified Developer (El Jazi Amal)**  
+  [View Certificate](https://certs.hashgraphdev.com/b5e911d8-32a0-471e-90fd-3fdd265f85d5.pdf)
+
+- **Project Presentation (Canva)**  
+  [View Presentation](https://www.canva.com/design/DAG3T8ifCDc/EvwhvhwiMdgVTs33A8WaoA/edit?utm_content=DAG3T8ifCDc&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
+
