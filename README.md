@@ -93,5 +93,5 @@ For detailed setup and deployment instructions, please refer to the **HOW-TO-RUN
   [View Certificate](https://certs.hashgraphdev.com/b5e911d8-32a0-471e-90fd-3fdd265f85d5.pdf)
 
 - **Project Presentation (Canva)**  
-  [View Presentation](https://www.canva.com/design/DAG3T8ifCDc/EvwhvhwiMdgVTs33A8WaoA/edit?utm_content=DAG3T8ifCDc&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
+  [View Presentation](https://www.canva.com/design/DAG6QspGDKU/H58jUZTdwr9Cfqbt_s9b_A/edit)
 
